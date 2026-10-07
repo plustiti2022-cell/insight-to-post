@@ -12,7 +12,7 @@ export async function callMiniMaxImage(prompt: string, signal?: AbortSignal) {
     const response = await fetch(`${(process.env.MINIMAX_BASE_URL ?? "https://api.minimax.cn/v1").replace(/\/$/, "")}/image_generation`, {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, prompt, n: 1, aspect_ratio: "1:1", response_format: "base64", prompt_optimizer: false }),
+      body: JSON.stringify({ model, prompt, n: 1, aspect_ratio: "3:4", response_format: "base64", prompt_optimizer: false }),
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
       cache: "no-store",
     });

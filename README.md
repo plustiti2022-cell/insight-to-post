@@ -51,7 +51,7 @@ POST /api/analyze 输入 idea（5～1000 字）及可选 socialTargetLength（28
 
 POST /api/social-content 接收服务器签名的 socialRetryToken，两小时有效，复用全部文章及已保留观察，只重试文案，不重复检索。每接口单进程并发上限 2；取消与新问题阻止旧结果重新出现。结果只保存在当前页面。
 
-POST /api/social-image 接收 `{ "text": "当前社交文案" }`，返回 `image`（`dataUrl / prompt / model / generatedAt`）、`attempts`、`durationMs`。配图由用户点击触发，使用 MiniMax `image-01`，固定 `n=1`、1:1（1024×1024）、base64 返回及关闭自动提示词优化。提示词明确采用“Corporate Memphis”和“Alegria”插画风格、扁平化矢量艺术、极简几何图形。页面可以查看提示词、下载图片或重新生成；重写文案和切换问题会清除旧图并取消未完成请求。演示数据不会调用图片 API。
+POST /api/social-image 接收 `{ "text": "当前社交文案" }`，返回 `image`（`dataUrl / prompt / model / generatedAt`）、`attempts`、`durationMs`。配图由用户点击触发，使用 MiniMax `image-01`，固定 `n=1`、aspect_ratio=3:4（竖版）、base64 返回及关闭自动提示词优化。提示词明确采用“Corporate Memphis”和“Alegria”插画风格、扁平化矢量艺术、极简几何图形。页面可以查看提示词、下载图片或重新生成；重写文案和切换问题会清除旧图并取消未完成请求。演示数据不会调用图片 API。
 
 图片生成失败最多自动重试一次，使用完全相同的提示词；配置、鉴权、余额错误和取消直接返回。除此之外不做图片兜底、不替换供应商或插入占位图。按 [MiniMax 官方协议](https://platform.minimax.cn/docs/api-reference/image-generation-t2i)，提示词最多 1500 字符；当前配图接口接受最多 1200 字符的文案，序列化后的完整提示词超过上限时明确报错，不截断文案。图片以 base64 在浏览器展示和下载，无临时远程链接依赖。
 

@@ -48,7 +48,7 @@ test("actual API returns a single base64 image with the exact current text and f
     calls++;
     assert.equal(String(url), "https://image.test/v1/image_generation");
     const body = JSON.parse(String(init?.body));
-    assert.deepEqual(body, { model: "image-01", prompt: socialImagePrompt({ text: "人和 AI 一起工作。" }), n: 1, aspect_ratio: "1:1", response_format: "base64", prompt_optimizer: false });
+    assert.deepEqual(body, { model: "image-01", prompt: socialImagePrompt({ text: "人和 AI 一起工作。" }), n: 1, aspect_ratio: "3:4", response_format: "base64", prompt_optimizer: false });
     return success();
   };
   const response = await POST(request("人和 AI 一起工作。"));
