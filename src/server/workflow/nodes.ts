@@ -2,7 +2,6 @@ import { AnalysisError, rethrowCancellation } from "../runtime";
 import {
   countCoverage,
   eligibleForGeneration,
-  supplementQuery,
 } from "../../core/sources";
 import { completeReport } from "../../core/report";
 import { emptyDraft, type Node, type NodeId } from "./state";
@@ -34,9 +33,14 @@ function reportNode(node: Node, attemptedCalls = 0): Node {
 }
 
 export const nodes: Record<NodeId, Node> = {
-  async search(_state, { idea, signal, deps }) {
+  async search(state, { idea, signal, deps }) {
     try {
-      return { research: await deps.research(idea, signal) };
+      const research = await deps.research(idea, signal);
+      return {
+        research,
+        modelCalls: state.modelCalls + (research.modelCalls ?? 0),
+        totalTokens: state.totalTokens + (research.totalTokens ?? 0),
+      };
     } catch (error) {
       rethrowCancellation(error, signal);
       return {
@@ -56,8 +60,11 @@ export const nodes: Record<NodeId, Node> = {
     // 即使被注入的服务会修改输入，也不能隐式更改上一个节点的状态。
     const prior = structuredClone(state.research);
     try {
+      const research = await deps.research(idea, signal, prior);
       return {
-        research: await deps.research(supplementQuery(idea), signal, prior),
+        research,
+        modelCalls: state.modelCalls + (research.modelCalls ?? 0) - (state.research.modelCalls ?? 0),
+        totalTokens: state.totalTokens + (research.totalTokens ?? 0) - (state.research.totalTokens ?? 0),
       };
     } catch (error) {
       rethrowCancellation(error, signal);

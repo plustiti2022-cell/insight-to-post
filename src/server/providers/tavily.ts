@@ -98,7 +98,7 @@ export const searchTavily = (
     {
       query,
       search_depth: "advanced",
-      max_results: 10,
+      max_results: 15,
       include_raw_content: "markdown",
       include_answer: false,
       auto_parameters: false,

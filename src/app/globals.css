@@ -6,3 +6,32 @@
 @media(max-width:760px){.header-caption{display:none}.header-inner{padding:0 22px}.site-header{height:72px}main{padding:0 22px}.hero{padding:43px 0 30px}.hero h1{font-size:49px;letter-spacing:-2px}.hero-line{display:block;margin:3px 0 0}.hero-description{margin-top:19px;font-size:13px}.hero-kicker{font-size:10px;letter-spacing:.5px;margin-bottom:20px}.workspace{display:flex;flex-direction:column;gap:28px}.input-panel{width:100%;padding:20px}.how-it-works{width:100%;padding:0 5px}.aside-heading h2{font-size:19px;margin-bottom:22px}.process-item{margin:20px 0}.process-item p{font-size:11px}.preview-note{margin-top:23px}.manifesto{padding:38px 0}.hero-compact h1{font-size:30px}.hero-compact .hero-line{display:inline;margin-left:5px}.hero-compact{padding:28px 0 23px}.report{padding:22px;border-radius:14px}.report>h2{font-size:23px}.report-header .eyebrow{font-size:8px;letter-spacing:.8px}.report-header{gap:8px;margin-bottom:17px}.summary-box{padding:17px}.summary-box p{font-size:13px}.metric-card{padding:19px}.metric-value{font-size:55px}.metric-context>div{gap:12px}.site-footer{padding:21px 22px;flex-direction:column;gap:10px}.source-dialog{width:100%;max-width:100%;margin:auto 0 0;border-radius:22px 22px 0 0;max-height:88dvh}.sheet-content{padding:12px 22px max(24px,env(safe-area-inset-bottom))}.sheet-handle{display:block;width:34px;height:4px;background:#d9dfcc;margin:0 auto 12px;border-radius:3px}.sheet-content h2{font-size:20px}.sheet-content blockquote{font-size:12px}.input-tip{font-size:9px}.privacy{font-size:10px}.submit-button{padding:0 16px;gap:14px}.examples button{font-size:10px}.panel-title>span:first-child{font-size:14px}.version{font-size:10px}.report-meta{gap:10px;font-size:9px}.result-navigation{margin-top:24px}.metric-context dd{flex:1;min-width:0}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
 .social-option{display:grid;gap:8px;margin-top:18px}.social-option label{font-size:11px;color:#718367}.social-option select{width:100%;max-width:100%;padding:11px;border:1px solid #dce3cc;background:#f4f6eb;border-radius:7px;font:12px Arial,"Microsoft YaHei",sans-serif;color:var(--ink)}.social-option small{font-size:10px;line-height:1.7;color:#8c977e}
+/* 问题导向的分段回答与段末原文链接。 */
+.report { max-width: 940px; }
+.summary-box { background: transparent; border: 0; border-radius: 0; padding: 0; margin: 30px 0 38px; color: #202124; }
+.summary-box p, .answer-points li { font-size: 17px; line-height: 1.95; white-space: pre-wrap; overflow-wrap: anywhere; }
+.summary-box .answer-lead p { font-weight: 650; line-height: 1.8; }
+.summary-item + .summary-item { margin-top: 24px; }
+.answer-points { list-style: disc; padding-left: 25px; margin: 28px 0; }
+.answer-points li { padding-left: 3px; margin: 14px 0; }
+.answer-points strong, .summary-item strong { font-weight: 650; }
+.answer-conclusion { margin-top: 28px; }
+.answer-source { display: inline-flex; align-items: center; vertical-align: baseline; padding: 1px 9px; margin-left: 5px; border-radius: 999px; background: #f2f2f2; color: #888; font-size: 11px; font-weight: 400; line-height: 1.6; text-decoration: none; white-space: nowrap; max-width: 100%; overflow-wrap: normal; }
+.answer-source:hover { background: #e6e6e6; color: #303030; }
+.answer-source:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.search-process { margin-bottom: 26px; }
+.search-step { border: 1px solid #e4e4e4; border-radius: 10px; margin-top: 10px; color: #626262; }
+.search-step summary { display: flex; align-items: center; gap: 16px; padding: 14px 16px; cursor: pointer; font-size: 13px; }
+.search-query { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.search-query::before { content: '⌕'; font-size: 21px; margin-right: 10px; }
+.search-count { flex-shrink: 0; font-size: 11px; }
+.search-count::before { content: '✓ '; color: #15a558; }
+.search-links { display: grid; gap: 12px; padding: 0 16px 16px; font-size: 12px; overflow-wrap: anywhere; }
+@media(max-width:760px) {
+  .summary-box { padding: 0; margin: 24px 0 30px; }
+  .summary-box p, .answer-points li { font-size: 15px; line-height: 1.95; }
+  .answer-points { padding-left: 20px; margin: 24px 0; }
+  .answer-source { font-size: 10px; }
+  .search-step summary { padding: 12px; gap: 8px; font-size: 11px; }
+  .search-count { font-size: 10px; }
+}

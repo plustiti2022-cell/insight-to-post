@@ -38,7 +38,7 @@ test('production model calls use centralized builders and prompts have no runtim
       }
     }
   }
-  assert.equal(calls, 2, '当前仅有报告生成与文案生成两个模型调用点');
+  assert.equal(calls, 4, '检索词规划、覆盖评估、报告生成与文案生成均使用集中提示词');
 });
 
 test('report input preserves quoted text and line breaks inside JSON data', () => {

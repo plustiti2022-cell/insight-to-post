@@ -6,6 +6,8 @@ export const referenceSchema = z.object({
 });
 export const statementSchema = z.object({
   claimId: z.string().optional(),
+  presentation: z.enum(["lead", "bullet", "paragraph", "conclusion"]).optional(),
+  label: z.string().trim().max(100).optional(),
   text: z.string().trim().min(1).max(3000),
   references: z.array(referenceSchema).max(60),
 });
@@ -31,7 +33,9 @@ export const cardSchema = z.object({
 });
 export const draftSchema = z.object({
   title: z.string().min(1).max(150),
-  summary: z.array(statementSchema).max(60),
+  // 单个生成段落仍由 statementSchema 限制；归并后的社交输入保留完整回答。
+  summary: z.array(statementSchema.extend({ text: z.string().trim().min(1).max(200000) })).max(60),
+  answerBlocks: z.array(statementSchema).max(60).optional(),
   cards: z.array(cardSchema).max(5),
   limitations: z.array(z.string().max(400)).max(8),
 });
@@ -95,6 +99,7 @@ export type Analysis = {
   coverage?: Coverage;
   socialContent?: SocialContent;
   socialRetryToken?: string;
+  searchSteps?: SearchStep[];
   diagnostics: {
     durationMs: number;
     searchCalls: number;
@@ -121,4 +126,14 @@ export type Research = {
   extractorCalls: number;
   credits: number;
   warnings: string[];
+  searchSteps?: SearchStep[];
+  followUpQuery?: string;
+  modelCalls?: number;
+  totalTokens?: number;
+};
+export type SearchStep = {
+  query: string;
+  resultCount: number;
+  extractedCount: number;
+  sourceIds: string[];
 };

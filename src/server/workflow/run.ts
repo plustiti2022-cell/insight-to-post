@@ -61,6 +61,7 @@ export async function runAnalysisGraph(
       generatedAt: new Date().toISOString(),
     },
     sources: publicSources(research.sources, draft),
+    searchSteps: research.searchSteps ?? [],
     warnings: [...new Set([...state.warnings, ...research.warnings])],
     coverage,
     socialContent: social.socialContent,

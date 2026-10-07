@@ -12,6 +12,7 @@
     "test": "tsx --test tests/*.test.ts",
     "test:ui": "node scripts/verify-ui.mjs",
     "test:ui:social": "node scripts/verify-ui-social.mjs",
+    "test:ui:answer": "node scripts/verify-ui-answer.mjs",
     "verify:live": "tsx --env-file=.env.local scripts/verify-live.ts"
   },
   "dependencies": {

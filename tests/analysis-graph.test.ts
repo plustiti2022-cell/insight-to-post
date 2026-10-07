@@ -124,6 +124,7 @@ test("failed supplement is attempted once and preserves the original article", a
     if (prior) throw new Error("search unavailable");
     return {
       sources: structuredClone(sources.slice(0, 1)),
+      followUpQuery: "targeted missing aspect",
       searchCalls: 1,
       extractorCalls: 0,
       credits: 1,
@@ -145,7 +146,7 @@ test("no evidence skips report models and still returns honest fallback outputs"
     throw new Error("offline");
   };
   const result = await runAnalysisGraph(input, deps);
-  assert.equal(searches, 2);
+  assert.equal(searches, 1);
   assert.deepEqual(calls, ["social", "sign"]);
   assert.match(result.report.summary[0].text, /未取得/);
   // 保留现有规则：空来源集合也满足“全部文章已引用”，仍提供重生成快照。

@@ -34,18 +34,6 @@ export function canonicalUrl(value: string): string | null {
     return null;
   }
 }
-export function supplementQuery(idea: string) {
-  const names = [
-    ...new Set(idea.match(/AI Scientist|[A-Za-z][A-Za-z0-9-]{2,}/g) ?? []),
-  ];
-  const years = [...new Set(idea.match(/\b(?:19|20)\d{2}\b/g) ?? [])];
-  return names.length
-    ? `${names.join(" ")} ${years.join(" ")} research paper official report findings capabilities limitations`.slice(
-        0,
-        600,
-      )
-    : `${idea.slice(0, 480)} research paper official statistics institutional report evidence`;
-}
 export function sourceType(url: string): SourceType {
   const parsed = new URL(url),
     host = parsed.hostname;

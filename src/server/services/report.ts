@@ -75,7 +75,7 @@ export async function generateReport(
       if (!summary.length)
         throw new Error("summary没有有效回答，请提供非空正文和输入中可定位的引用编号。");
       return {
-        draft: draftSchema.parse({ ...input, summary, cards }),
+        draft: draftSchema.parse({ ...input, summary, cards, answerBlocks: undefined }),
         warnings,
         modelCalls: attempt + 1,
         totalTokens,

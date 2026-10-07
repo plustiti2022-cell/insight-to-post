@@ -5,6 +5,8 @@ import { includeEveryArticle } from "../src/core/report";
 import { reportBasedSocial } from "../src/core/social";
 import { statementSchema, type Source } from "../src/core/contracts";
 import { demo } from "../src/client/demo";
+import { validateReport } from "../src/core/evidence";
+import { draftSchema } from "../src/core/contracts";
 
 const source: Source = {
   id: "S1", url: "https://example.org/research", title: "Research",
@@ -104,4 +106,35 @@ test("metric explanations cannot stand in for a missing answer", () => {
   assert.match(completed.summary[0].text, /未能完成.*请重新分析/);
   assert.ok(!completed.summary[0].text.includes(demo.report.cards[0].explanation));
   assert.equal(completed.cards.length, demo.report.cards.length);
+});
+
+test("paragraph references survive completion while unused articles only join social evidence metadata", () => {
+  const second = { ...source, id: "S2", url: "https://example.org/second" };
+  const unused = { ...source, id: "S3", url: "https://example.org/unused" };
+  const completed = includeEveryArticle({ title: "AI就业", cards: [], limitations: [], summary: [
+    { presentation: "lead", text: "部分岗位需求可能变化。", references: [{ sourceId: "S1", quote: source.extractedContent }] },
+    { presentation: "bullet", label: "岗位转型", text: "需要区分任务效率与就业变化。", references: [{ sourceId: "S2", quote: second.extractedContent }] },
+  ] }, [source, second, unused]);
+  assert.deepEqual(completed.answerBlocks?.map((block) => block.references.map((ref) => ref.sourceId)), [["S1"], ["S2"]]);
+  assert.equal(completed.summary.length, 1);
+  assert.equal(completed.summary[0].text, "部分岗位需求可能变化。\n\n岗位转型：需要区分任务效率与就业变化。");
+  assert.deepEqual(completed.summary[0].references.map((ref) => ref.sourceId), ["S1", "S2", "S3"]);
+  assert.equal(completed.summary[0].claimId, "summary-1");
+  assert.equal(reportBasedSocial(completed, [source, second, unused], 2000).coverage.citedSourceCount, 3);
+});
+
+test("unsupported numbers in a bold point label cannot bypass evidence validation", () => {
+  const result = validateReport({ title: "研究", cards: [], limitations: [], summary: [
+    { presentation: "bullet", label: "减少99%", text: "岗位发生变化。", references: [{ sourceId: "S1", quote: source.extractedContent }] },
+  ] }, [source]);
+  assert.equal(result.report.summary.length, 0);
+});
+
+test("a complete multi-paragraph answer remains valid in the social snapshot contract", () => {
+  const completed = includeEveryArticle({ title: "研究", cards: [], limitations: [], summary: [
+    { text: "岗位需求可能变化。".repeat(180), references: [{ sourceId: "S1", quote: source.extractedContent }] },
+    { text: "任务效率与就业变化需要区分。".repeat(180), references: [{ sourceId: "S1", quote: source.extractedContent }] },
+  ] }, [source]);
+  assert.ok(completed.summary[0].text.length > 3000);
+  assert.equal(draftSchema.parse(completed).summary[0].text, completed.summary[0].text);
 });

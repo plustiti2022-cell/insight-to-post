@@ -162,7 +162,7 @@ export function validateReport(draft: Draft, sources: Source[]) {
     const valid =
       validReferences(item.references, sources) &&
       numericMatch(
-        item.text,
+        [item.label, item.text].filter(Boolean).join(" "),
         item.references.map((ref) => ref.quote).join(" "),
       );
     if (!valid)

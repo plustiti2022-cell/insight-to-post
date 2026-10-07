@@ -27,9 +27,16 @@ export function includeEveryArticle(draft: Draft, sources: Source[]): Draft {
       if (!record) continue;
       references.push({ sourceId: source.id, quote: record.text });
     }
-  const ideas = draft.summary
+  const answerBlocks = draft.summary
     .filter((item) => !isArticleExcerpt(item.text))
-    .map((item) => plain(item.text));
+    .map((item, index) => ({
+      ...item,
+      text: plain(item.text),
+      ...(item.label ? { label: plain(item.label) } : {}),
+      presentation: item.presentation ?? (index === 0 ? "lead" as const : "paragraph" as const),
+    }))
+    .filter((item) => item.text);
+  const ideas = answerBlocks.map((item) => item.label ? `${item.label}：${item.text}` : item.text);
   const text =
     ideas.filter(Boolean).join("\n\n") ||
     (sources.length
@@ -40,6 +47,8 @@ export function includeEveryArticle(draft: Draft, sources: Source[]): Draft {
     ...draft,
     title: draft.title.slice(0, 150),
     summary,
+    // 页面保留各段真实引用；完整纯文字与全部文章依据仍供既有社交逻辑使用。
+    answerBlocks: answerBlocks.length ? answerBlocks : [{ text, references: [], presentation: "lead" }],
   });
 }
 function isArticleExcerpt(text: string) {

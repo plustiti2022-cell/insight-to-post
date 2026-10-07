@@ -5,10 +5,10 @@ export const START: NodeId = "search";
 export const END = "end";
 type Edge = (state: Readonly<WorkflowState>) => NodeId | typeof END;
 
-// 只读取状态、选择下一步；五篇是补搜触发条件，不是输出门槛。
+// 只读取状态、选择下一步；补搜针对问题覆盖的缺口，与篇数无关。
 export const edges: Record<NodeId, Edge> = {
   search: (state) =>
-    eligibleForGeneration(state.research).length < 5 &&
+    state.research.followUpQuery &&
     state.research.searchCalls < 2
       ? "supplement"
       : "prepareEvidence",

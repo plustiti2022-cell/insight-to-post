@@ -57,7 +57,7 @@ test('Extract supplements only known URL bodies, preserves per-URL failures and 
   const undo=restore(['TAVILY_API_KEY']);const original=globalThis.fetch;process.env.TAVILY_API_KEY='test-only';let calls=0;
   globalThis.fetch=async(_url,init)=>{
     calls++;const body=JSON.parse(String(init?.body));
-    if(calls===1){assert.equal(body.include_raw_content,'markdown');assert.equal(body.max_results,10);return Response.json({results:[{url:'https://example.org/a',raw_content:null},{url:'https://example.org/b',raw_content:null}],usage:{credits:2}});}
+    if(calls===1){assert.equal(body.include_raw_content,'markdown');assert.equal(body.max_results,15);return Response.json({results:[{url:'https://example.org/a',raw_content:null},{url:'https://example.org/b',raw_content:null}],usage:{credits:2}});}
     assert.deepEqual(body.urls,['https://example.org/a','https://example.org/b']);return Response.json({results:[{url:'https://example.org/a',raw_content:sources[0].extractedContent},{url:'https://injected.example/',raw_content:sources[1].extractedContent}],failed_results:[{url:'https://example.org/b'}],usage:{credits:1}});
   };
   try {const r=await researchWithTavily('question');assert.equal(r.sources.length,2);assert.deepEqual(r.sources.map(s=>s.extractionStatus),['available','failed']);assert.equal(r.credits,3);}finally{globalThis.fetch=original;undo();}
@@ -150,10 +150,12 @@ test('locally valid report retains all observations and skips model review',asyn
     if(String(url).endsWith('/search')){searches++;return Response.json({results:sources.map(s=>({url:s.url,title:s.title,raw_content:s.extractedContent}))});}
     assert.equal(body.tools,undefined);
     assert.ok(!body.input.startsWith('你是独立'));
+    if(body.input.startsWith('你是检索规划'))return Response.json({output_text:JSON.stringify({query:'research question evidence'})});
+    if(body.input.startsWith('你是检索评估'))return Response.json({output_text:JSON.stringify({followUpQuery:null})});
     if(body.input.startsWith('你是中文')){socialCalls++;return Response.json({status:'completed',output_text:JSON.stringify({paragraphs:[{text:'研究中的变化值得关注。',claimIds:[]},{text:'实验评估各有边界。',claimIds:['summary-1']},{text:'这些变化会怎样影响你的工作？',claimIds:[]}]})});}
     reports++;return Response.json({status:'completed',output_text:JSON.stringify(rawReport)});
   };
-  try {const r=await analyze('用于测试的研究问题');assert.equal(r.status,'complete');assert.ok(r.report.summary[0].text.includes(facts[2]));assert.equal(r.coverage?.citedSourceCount,5);assert.equal(r.socialContent?.status,'ready');assert.equal(searches,1);assert.equal(reports,1);assert.equal(socialCalls,1);assert.equal(r.diagnostics.modelCalls,2);assert.ok(!r.report.limitations.some(text=>text.includes('模型辅助语义复核')));}finally{globalThis.fetch=original;undo();}
+  try {const r=await analyze('用于测试的研究问题');assert.equal(r.status,'complete');assert.ok(r.report.summary[0].text.includes(facts[2]));assert.equal(r.coverage?.citedSourceCount,5);assert.equal(r.socialContent?.status,'ready');assert.equal(searches,1);assert.equal(reports,1);assert.equal(socialCalls,1);assert.equal(r.diagnostics.modelCalls,4);assert.ok(!r.report.limitations.some(text=>text.includes('模型辅助语义复核')));}finally{globalThis.fetch=original;undo();}
 });
 test('one structurally invalid metric is dropped without losing valid cited analysis',async()=>{
   const undo=restore(['QWEN_API_KEY']);const original=globalThis.fetch;process.env.QWEN_API_KEY='test-only';
@@ -187,9 +189,11 @@ test('a failed social model call produces report-based copy and preserves the re
     if(String(url).endsWith('/search')){searches++;return Response.json({results:sources.map(s=>({url:s.url,title:s.title,raw_content:s.extractedContent}))});}
     const body=JSON.parse(String(init?.body));
     if(body.input.startsWith('你是中文'))throw new Error('network unavailable');
+    if(body.input.startsWith('你是检索规划'))return Response.json({output_text:JSON.stringify({query:'research question evidence'})});
+    if(body.input.startsWith('你是检索评估'))return Response.json({output_text:JSON.stringify({followUpQuery:null})});
     return Response.json({status:'completed',output_text:JSON.stringify(rawReport)});
   };
-  try {const r=await analyze('用于失败节点测试的问题');assert.equal(r.coverage?.requirementMet,true);assert.equal(r.report.summary.length,1);assert.equal(r.socialContent?.status,'ready');assert.ok(r.socialRetryToken);assert.equal(searches,1);assert.equal(r.diagnostics.modelCalls,2);assert.equal(readSocialSnapshot(r.socialRetryToken!).report.summary.length,1);}finally{globalThis.fetch=original;undo();}
+  try {const r=await analyze('用于失败节点测试的问题');assert.equal(r.coverage?.requirementMet,true);assert.equal(r.report.summary.length,1);assert.equal(r.socialContent?.status,'ready');assert.ok(r.socialRetryToken);assert.equal(searches,1);assert.equal(r.diagnostics.modelCalls,4);assert.equal(readSocialSnapshot(r.socialRetryToken!).report.summary.length,1);}finally{globalThis.fetch=original;undo();}
 });
 test('all twelve extracted articles, including mirrors, survive selection and appear in both outputs',()=>{
   const articles=Array.from({length:12},(_,i)=>({...sources[i%5],id:`S${i+1}`,url:`https://example.org/article-${i}`}));
