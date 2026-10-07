@@ -127,6 +127,15 @@ export type Analysis = {
     socialDurationMs?: number;
   };
 };
+export type AnalysisStage =
+  | "search" | "supplement" | "prepareEvidence" | "generate"
+  | "validate" | "recoverAnswer" | "completeReport" | "social";
+// 对外事件只包含进度与已完成校验的公开结果，不传输模型原始输出。
+export type AnalysisEvent =
+  | { type: "progress"; stage: AnalysisStage }
+  | { type: "report"; analysis: Analysis }
+  | { type: "result"; analysis: Analysis }
+  | { type: "error"; error: { code: string; message: string } };
 export const inputSchema = z.object({
   idea: z
     .string()

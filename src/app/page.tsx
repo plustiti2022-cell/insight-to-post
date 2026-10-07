@@ -31,6 +31,7 @@ export default function Home() {
     loading,
     error,
     elapsed,
+    progress,
     start,
     clear,
     showDemo,
@@ -39,12 +40,13 @@ export default function Home() {
   } = useAnalysis();
   const result = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const reportId = analysis?.report.generatedAt;
   useEffect(() => {
-    if (analysis)
+    if (reportId)
       requestAnimationFrame(() =>
         result.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
       );
-  }, [analysis]);
+  }, [reportId]);
   function submit(event: React.FormEvent) {
     event.preventDefault();
     if (loading) return;
@@ -191,7 +193,7 @@ export default function Home() {
                 <div className="loading-top">
                   <span>
                     <LoaderCircle size={16} className="spin" />{" "}
-                    正在联网研究并核对证据
+                    {progress || "正在联网研究并核对证据"}
                   </span>
                   <button
                     type="button"
@@ -291,6 +293,7 @@ export default function Home() {
                 analysis={analysis}
                 isDemo={isDemo}
                 onSource={onSource}
+                pending={loading}
               />
             </>
           )}

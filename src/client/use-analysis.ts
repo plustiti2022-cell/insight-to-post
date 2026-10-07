@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { Analysis } from "@/core/contracts";
+import { analysisProgress, readAnalysisStream } from "./analysis-stream";
 
 // 请求生命周期集中管理：取消、超时、卸载与过期响应只作用于自己的请求。
 export function useAnalysis() {
@@ -9,6 +10,7 @@ export function useAnalysis() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const [progress, setProgress] = useState("");
   const controller = useRef<AbortController | null>(null);
   useEffect(
     () => () => {
@@ -35,16 +37,26 @@ export function useAnalysis() {
     setError("");
     setElapsed(0);
     setAnalysis(null);
+    setIsDemo(false);
+    setProgress("正在连接研究服务");
     try {
       const response = await fetch("/api/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
         body: JSON.stringify({ idea: idea.trim(), socialTargetLength }),
         signal: AbortSignal.any([active.signal, AbortSignal.timeout(600000)]),
       });
-      const data = await response.json();
-      if (!response.ok)
+      if (!response.ok) {
+        const data = await response.json();
         throw new Error(data.error?.message ?? "分析失败，请重试。");
+      }
+      const data = response.headers.get("content-type")?.includes("text/event-stream")
+        ? await readAnalysisStream(response, event => {
+            if (controller.current !== active || active.signal.aborted) return;
+            if (event.type === "progress") setProgress(analysisProgress[event.stage]);
+            if (event.type === "report") setAnalysis(event.analysis);
+          })
+        : await response.json();
       if (controller.current === active && !active.signal.aborted) {
         setAnalysis(data);
         setIsDemo(false);
@@ -83,6 +95,7 @@ export function useAnalysis() {
     loading,
     error,
     elapsed,
+    progress,
     start,
     clear,
     showDemo,

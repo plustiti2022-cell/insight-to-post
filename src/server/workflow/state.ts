@@ -3,6 +3,8 @@ import type {
   Research,
   Source,
   SocialContent,
+  AnalysisEvent,
+  AnalysisStage,
 } from "../../core/contracts";
 import type { Observer } from "../runtime";
 
@@ -46,6 +48,7 @@ export type AnalysisInput = {
   idea: string;
   signal?: AbortSignal;
   observe?: Observer;
+  onEvent?: (event: AnalysisEvent) => Promise<void>;
   socialTargetLength: number;
 };
 export type WorkflowState = {
@@ -58,15 +61,7 @@ export type WorkflowState = {
   totalTokens: number;
   social?: SocialResult;
 };
-export type NodeId =
-  | "search"
-  | "supplement"
-  | "prepareEvidence"
-  | "generate"
-  | "validate"
-  | "recoverAnswer"
-  | "completeReport"
-  | "social";
+export type NodeId = AnalysisStage;
 export type NodeContext = AnalysisInput & {
   start: number;
   deps: AnalysisDependencies;

@@ -20,6 +20,7 @@ import {
   type AnalysisDependencies,
   type AnalysisInput,
   type NodeId,
+  type WorkflowState,
 } from "./state";
 
 // 唯一组装点：新增供应商只需要替换能力实现，不改节点和边。
@@ -54,6 +55,7 @@ export async function runAnalysisGraph(
   return logger.run("analysis", { ideaLength: input.idea.length, targetLength: input.socialTargetLength }, async () => {
     let state = initialState(input.idea);
     const context = { ...input, start: Date.now(), deps };
+    const generatedAt = new Date().toISOString();
     let current: NodeId | typeof END = START;
     // 有限工作流；未来增加回边时，必须显式声明预算，避免意外无限调用。
     const visited = new Set<NodeId>();
@@ -63,9 +65,18 @@ export async function runAnalysisGraph(
         throw new Error(`Workflow cycle without a budget: ${current}`);
       visited.add(current);
       const node: NodeId = current;
+      await input.onEvent?.({ type: "progress", stage: node });
+      input.signal?.throwIfAborted();
       current = await logger.run("node", { node }, async () => {
         state = { ...state, ...(await nodes[node](state, context)) };
         input.signal?.throwIfAborted();
+        if (node === "completeReport") {
+          await input.onEvent?.({
+            type: "report",
+            analysis: publicAnalysis(state, input, context.start, generatedAt, deps),
+          });
+          input.signal?.throwIfAborted();
+        }
         const nextNode = edges[node](state);
         logger.info("node.transition", {
           node, nextNode, sourceCount: state.research.sources.length,
@@ -77,43 +88,53 @@ export async function runAnalysisGraph(
       }, input.signal);
     }
     if (!state.social) throw new Error("Workflow ended without social content");
-    const { draft, research, social } = state;
-    const sources = eligibleForGeneration(research);
-    const coverage = reportCoverage(draft, sources);
-    return {
-      status: "complete",
-      report: {
-        ...draft,
-        title:
-          input.idea.length > 150 ? `${input.idea.slice(0, 147)}…` : input.idea,
-        generatedAt: new Date().toISOString(),
-      },
-      sources: publicSources(research.sources, draft),
-      searchSteps: research.searchSteps ?? [],
-      warnings: [...new Set([...state.warnings, ...research.warnings])],
-      coverage,
-      socialContent: social.socialContent,
-      ...(coverage.requirementMet
-        ? {
-            socialRetryToken: deps.signSocialSnapshot(
-              draft,
-              sources,
-              input.socialTargetLength,
-            ),
-          }
-        : {}),
-      diagnostics: {
-        durationMs: Date.now() - context.start,
-        searchCalls: research.searchCalls,
-        extractorCalls: research.extractorCalls,
-        modelCalls: state.modelCalls,
-        totalTokens: state.totalTokens,
-        sourceTypes: coverage.citedSourceTypes.length,
-        tavilyCredits: research.credits,
-        socialDurationMs: social.durationMs,
-      },
-    };
+    return publicAnalysis(state, input, context.start, generatedAt, deps);
   }, input.signal);
+}
+
+function publicAnalysis(
+  state: WorkflowState,
+  input: AnalysisInput,
+  start: number,
+  generatedAt: string,
+  deps: AnalysisDependencies,
+): Analysis {
+  const { draft, research, social } = state;
+  const sources = eligibleForGeneration(research);
+  const coverage = reportCoverage(draft, sources);
+  return {
+    status: social ? "complete" : "partial",
+    report: {
+      ...draft,
+      title:
+        input.idea.length > 150 ? `${input.idea.slice(0, 147)}…` : input.idea,
+      generatedAt,
+    },
+    sources: publicSources(research.sources, draft),
+    searchSteps: research.searchSteps ?? [],
+    warnings: [...new Set([...state.warnings, ...research.warnings])],
+    coverage,
+    socialContent: social?.socialContent,
+    ...(social && coverage.requirementMet
+      ? {
+          socialRetryToken: deps.signSocialSnapshot(
+            draft,
+            sources,
+            input.socialTargetLength,
+          ),
+        }
+      : {}),
+    diagnostics: {
+      durationMs: Date.now() - start,
+      searchCalls: research.searchCalls,
+      extractorCalls: research.extractorCalls,
+      modelCalls: state.modelCalls,
+      totalTokens: state.totalTokens,
+      sourceTypes: coverage.citedSourceTypes.length,
+      tavilyCredits: research.credits,
+      socialDurationMs: social?.durationMs,
+    },
+  };
 }
 
 export function analyze(
@@ -121,6 +142,7 @@ export function analyze(
   signal?: AbortSignal,
   observe?: Observer,
   socialTargetLength = targetLength(Number(process.env.X_TARGET_LENGTH ?? 280)),
+  onEvent?: AnalysisInput["onEvent"],
 ) {
-  return runAnalysisGraph({ idea, signal, observe, socialTargetLength });
+  return runAnalysisGraph({ idea, signal, observe, socialTargetLength, onEvent });
 }

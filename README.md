@@ -49,6 +49,10 @@ Windows 在项目目录运行：
 
 POST /api/analyze 输入 idea（5～1000 字）及可选 socialTargetLength（280 / 2000）。报告覆盖数量是已提取和实际引用文章数，不是达标门槛。诊断含搜索、补取、credits、模型调用、token 与耗时。
 
+页面默认使用分阶段流式返回：发送 `Accept: text/event-stream`，通过 POST fetch 读取 SSE。事件依次包含 `progress`（实际工作流阶段）、`report`（已校验的核心观察、指标和公开来源）、`result`（完整报告与文案）；流开始后失败用 `error` 事件返回，输入错误与并发超限仍使用 HTTP JSON 错误。流每 15 秒发送注释心跳，不公开上游原始输出。未声明 SSE 的调用继续返回原 JSON。
+
+核心观察完成即展示，文案完成后补入复制和配图操作；后续失败或取消保留已展示的观察并说明文案未完成。切换问题清除旧结果，迟到事件不会恢复旧内容。浏览器取消与断开连接会取消后端任务；流式与 JSON 请求共用同一并发额度，任务结束后释放。
+
 POST /api/social-content 接收服务器签名的 socialRetryToken，两小时有效，复用全部文章及已保留观察，只重试文案，不重复检索。每接口单进程并发上限 2；取消与新问题阻止旧结果重新出现。结果只保存在当前页面。
 
 POST /api/social-image 接收 `{ "text": "当前社交文案" }`，返回 `image`（`dataUrl / prompt / model / generatedAt`）、`attempts`、`durationMs`。配图由用户点击触发，使用 MiniMax `image-01`，固定 `n=1`、aspect_ratio=3:4（竖版）、base64 返回及关闭自动提示词优化。提示词明确采用“Corporate Memphis”和“Alegria”插画风格、扁平化矢量艺术、极简几何图形。页面可以查看提示词、下载图片或重新生成；重写文案和切换问题会清除旧图并取消未完成请求。演示数据不会调用图片 API。
@@ -90,6 +94,7 @@ POST /api/social-image 接收 `{ "text": "当前社交文案" }`，返回 `image
     npm run test:ui:social
     npm run test:ui:answer
     npm run test:ui:image
+    npm run test:ui:stream
     node scripts/verify-ui-observations.mjs
 
 最后一项调用真实 API，会产生服务用量。其余测试使用模拟响应，覆盖检索词改写、按覆盖补搜、完整批量提取、分段引用直达原文，以及 prompt 集中管理、少量来源、单一类型、全部 12 篇文章、模型失败与无正文仍输出、事实校验、取消、复制及签名保护。最新实测见 [验收记录](./验收记录.md)。
@@ -98,4 +103,4 @@ POST /api/social-image 接收 `{ "text": "当前社交文案" }`，返回 `image
 
 [开发计划](./MVP开发计划.md)、[设计说明原稿](./设计决策说明.md)、[两页设计 PDF](./output/pdf/设计决策说明-v02.pdf)。旧规则保存在 docs/history；旧演示不代表当前引用政策。真实手机人工检查仍待确认。
 
-平台直接发布、流式、其他图表模板、登录、数据库、PWA 和公网托管仍暂缓。原文、翻译和推断仍可人工核验；不声称模型或来源绝对正确。
+平台直接发布、逐字流式、其他图表模板、登录、数据库、PWA 和公网托管仍暂缓。原文、翻译和推断仍可人工核验；不声称模型或来源绝对正确。

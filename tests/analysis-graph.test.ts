@@ -8,6 +8,7 @@ import {
 import { AnalysisError } from "../src/server/runtime";
 import { reportBasedSocial } from "../src/core/social";
 import type { Source, Draft } from "../src/core/contracts";
+import type { AnalysisEvent } from "../src/core/contracts";
 import { nodes } from "../src/server/workflow/nodes";
 import { initialState } from "../src/server/workflow/state";
 
@@ -115,6 +116,40 @@ test("graph preserves order, observer names, usage and selected length", async (
   assert.equal(result.diagnostics.extractorCalls, 2);
   assert.equal(result.socialContent?.targetLength, 2000);
   assert.equal(result.coverage?.citedSourceCount, 5);
+});
+
+test("public streaming emits only validated report before social and preserves its identity", async () => {
+  const { deps } = fixture();
+  const events: AnalysisEvent[] = [];
+  const generateSocial = deps.generateSocialContent;
+  deps.generateSocialContent = async (...args) => {
+    const report = events.find(event => event.type === "report");
+    assert.ok(report && report.type === "report");
+    assert.equal(report.analysis.status, "partial");
+    assert.equal(report.analysis.socialContent, undefined);
+    assert.equal(report.analysis.socialRetryToken, undefined);
+    assert.equal(report.analysis.sources.length, 5);
+    assert.ok(report.analysis.report.answerBlocks?.length);
+    assert.doesNotMatch(JSON.stringify(report), /extractedContent|report-output|draft-0/);
+    return generateSocial(...args);
+  };
+  const result = await runAnalysisGraph({ ...input, onEvent: async event => { events.push(event); } }, deps);
+  assert.deepEqual(events.filter(event => event.type === "progress").map(event => event.stage),
+    ["search", "prepareEvidence", "generate", "validate", "completeReport", "social"]);
+  const report = events.find(event => event.type === "report");
+  assert.ok(report && report.type === "report");
+  assert.deepEqual(report.analysis.report, result.report);
+  assert.deepEqual(report.analysis.sources, result.sources);
+  assert.equal(result.socialRetryToken, "signed-test");
+});
+
+test("cancelling after the streamed report stops before social generation", async () => {
+  const { deps, calls } = fixture();
+  const controller = new AbortController();
+  await assert.rejects(runAnalysisGraph({ ...input, signal: controller.signal,
+    onEvent: async event => { if (event.type === "report") controller.abort(); },
+  }, deps), { name: "AbortError" });
+  assert.ok(!calls.includes("social"));
 });
 
 test("failed supplement is attempted once and preserves the original article", async () => {
