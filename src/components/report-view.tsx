@@ -1,8 +1,7 @@
-import { ArrowUpRight, CircleAlert, BookOpen, Clock3 } from "lucide-react";
+import { CircleAlert, BookOpen, Clock3 } from "lucide-react";
 import type { Analysis, Reference } from '@/core/contracts';
 import { MetricCard } from "./metric-card";
 import { CoreAnswer } from "./core-answer";
-import { sourceStatusLabels } from '@/core/sources';
 import { SocialContent } from './social-content';
 export function ReportView({ analysis, isDemo, onSource }: { analysis: Analysis; isDemo: boolean; onSource: (id: string, refs: Reference[]) => void }) {
   const { report, sources, diagnostics } = analysis;
@@ -14,7 +13,6 @@ export function ReportView({ analysis, isDemo, onSource }: { analysis: Analysis;
     <CoreAnswer report={report} sources={sources}/>
     {report.cards.length > 0 && <><div className="section-heading"><h3>让数据说话</h3><span>{String(report.cards.length).padStart(2,"0")} 项指标</span></div><div className="metrics">{report.cards.map((card, index) => <MetricCard key={`${card.label}-${index}`} card={card} index={index} onSource={onSource}/>)}</div></>}
     <div className="limitations"><div className="section-heading"><h3><CircleAlert size={17}/> 阅读边界</h3></div>{analysis.warnings.length > 0 && <ul className="warnings">{analysis.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}<ul>{report.limitations.map((limit, index) => <li key={index}>{limit}</li>)}</ul></div>
-    <div className="all-sources"><div className="section-heading"><h3>研究来源</h3><span>{sources.length} 个链接</span></div>{sources.map(source => <button key={source.id} className="source-row" onClick={() => onSource(source.id, [...report.cards.flatMap(card => card.references), ...report.summary.flatMap(item => item.references)])}><span className="source-number">{source.id.replace("S", "")}</span><span className="source-info"><strong>{source.title || new URL(source.url).hostname}</strong><span>{source.sourceType} · {sourceStatusLabels[source.status]} · {source.publishedAt || "日期未知"}</span></span><ArrowUpRight size={17}/></button>)}</div>
     <SocialContent key={report.generatedAt} analysis={analysis} isDemo={isDemo} onSource={onSource}/>
     {!isDemo && <p className="diagnostics">本次研究 · {(diagnostics.durationMs/1000).toFixed(1)} 秒 · Tavily {diagnostics.searchCalls} 次搜索 / {diagnostics.extractorCalls} 次补取 · {diagnostics.tavilyCredits ?? 0} credits · 千问 {diagnostics.modelCalls} 次调用 / {diagnostics.totalTokens.toLocaleString()} tokens</p>}
     <p className="report-footnote">AI 辅助生成 · 引用可追溯，结论请结合原文核验。</p>
