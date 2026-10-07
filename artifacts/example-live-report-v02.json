@@ -1,0 +1,640 @@
+{
+  "status": "partial",
+  "report": {
+    "title": "AI 如何参与 AI 研发？结合 AlphaEvolve、AI Scientist、自动化机器学习的真实案例说明能力和局限。",
+    "summary": [
+      {
+        "text": "AlphaEvolve等进化式编码智能体已能在算法发现、硬件优化及数据中心调度中取得实质性突破，例如在4x4复数矩阵乘法中将标量乘法次数降至48次，并持续回收谷歌全球0.7%的计算资源。",
+        "kind": "fact",
+        "references": [
+          {
+            "sourceId": "S13",
+            "quote": "[View PDF](/pdf/2506.13131) [HTML (experimental)](https://arxiv.org/html/2506.13131v1)\n> Abstract:In this white paper, we present AlphaEvolve, an evolutionary coding agent that substantially enhances capabilities of state-of-the-art LLMs on highly challenging tasks such as tackling open scientific problems or optimizing critical pieces of computational infrastructure. AlphaEvolve orchestrates an autonomous pipeline of LLMs, whose task is to improve an algorithm by making direct changes to the code. Using an evolutionary approach, continuously receiving feedback from one or more evaluators, AlphaEvolve iteratively improves the algorithm, potentially leading to new scientific and practical discoveries. We demonstrate the broad applicability of this approach by applying it to a number of important computational problems. When applied to optimizing critical components of large-scale computational stacks at Google, AlphaEvolve developed a more efficient scheduling algorithm for data centers, found a functionally equivalent simplification in the circuit design of hardware accelerators, and accelerated the training of the LLM underpinning AlphaEvolve itself. Furthermore, AlphaEvolve discovered novel, provably correct algorithms that surpass state-of-the-art solutions on a spectrum of problems in mathematics and computer science, significantly expanding the scope of prior automated discovery methods (Romera-Paredes et al., 2023). Notably, AlphaEvolve developed a search algorithm that found a procedure to multiply two $4 \\times 4$ complex-valued matrices using $48$ scalar multiplications; offering the first improvement, after 56 years, over Strassen's algorithm in this setting. We believe AlphaEvolve and coding agents like it can have a significant impact in improving solutions of problems across many areas of science and computation."
+          },
+          {
+            "sourceId": "S8",
+            "quote": "AlphaEvolve discovered a simple yet remarkably effective heuristic to help [Borg](https://research.google/pubs/large-scale-cluster-management-at-google-with-borg/?utm_source=deepmind.google&utm_medium=referral&utm_campaign=gdm&utm_content=) orchestrate Google's vast data centers more efficiently. This solution, now in production for over a year, continuously recovers, on average, 0.7% of Google’s worldwide compute resources. This sustained efficiency gain means that at any given moment, more tasks can be completed on the same computational footprint. AlphaEvolve's solution not only leads to strong performance but also offers significant operational advantages of human-readable code: interpretability, debuggability, predictability and ease of deployment."
+          }
+        ],
+        "claimId": "summary-1"
+      },
+      {
+        "text": "尽管AI在代码生成和特定数学结构发现上表现强劲，但当前“AI for AI”仍主要处于弱递归自我改进阶段。人类仍需负责设定目标、定义标准及最终决策，且面临验证周期长、缺乏因果推理能力及难以开创全新研究范式等局限。",
+        "kind": "inference",
+        "references": [
+          {
+            "sourceId": "S1",
+            "quote": "******深水区思辨：************AI 研究员迈向“强 RSI”的五大卡点******从 NaiveRT 的 151 轮迭代，到 AutoWM 的 400 小时探索，两个真实案例清晰地展现了当前 AI 研究员的能力边界。但重新审视整个行业的进展，我们仍处在**弱 RSI**的起点：AI 的角色更像刚入行的科研实习生，能在已知框架内完成参数调优与方案组合，远未达到独立主导完整科学研究的阶段。而距离真正能够自主阅读前沿文献、提出研究假设、调度算力资源、端到端完成模型迭代的**强 RSI**形态，即全自动 AI 研究员，OpenAI 给出的目标节点是 2028 年。这中间，还有许多卡点无法跨越。首先是**验证难**软件代码写完可以马上运行并获得及时反馈，但模型训练的反馈周期要漫长得多。151 轮实验看似密集，背后是算力的并行堆砌，而非 AI 本身的思考速度。越往底层架构走、越靠近预训练环节，AI 的迭代效率就越受限于物理算力与训练周期。它可以一口气生成上百个候选方案，但最终能验证多少，依然要等算力排队，要等训练跑完。如果涉及机器人、材料科学等物理世界的实验，反馈周期和成本更会随实验规模呈指数级上升。比验证难更深一层的困境，是**发现能力**当前所有 AI for AI 的迭代，本质上都是现有知识的排列组合与参数调优。AI 可以把已知方向的研究做得又快又极致，但无法独立开创出全新的研究范式。当年 Transformer 能取代 RNN，需要对领域的深层理解、对未来方向的直觉判断，甚至一定的审美与运气。这些就是人类研究员的 “科研品味”，也是当前 AI 无法替代的核心价值。再往底层剖析，则绕不开模型**因果能力的匮乏**纯文本语料训练出来的大模型，因果判断天然不稳定，逻辑推演极易受到表述形式的干扰。这也正是杨立昆近年不遗余力推崇世界模型的核心原因：只有在与物理世界的交互中习得的因果律才是扎实的。纯文本里学到的 “因果”，很多时候只是语言层面的相关性，而非真正的逻辑因果。在世界模型实验中，AI 敏锐地发现了 “部分评测指标无需参考视频” 的规律，并以此优化了输出策略，最终拿到了更高的分数。但这个规律，是底层逻辑的必然，还是特定数据集上的偶然？AI 能高效地发现关联，却很难独立判断这个关联是不是真正的因果。同时，**评估器能力不足**也是一个迫切的难题。科学研究最核心的部分在于科研品味，而这种创新性与长期价值很难被量化成明确的指标。如果训练系统一味使用可量化的跑分做奖励信号，AI 会倾向于为了刷高指标而进行投机优化，反而会牺牲真正的创新性。然而，这些都还不算真正的深水区。**元递归，也就是“迭代的方法本身”，才是从弱 RSI 走向强 RSI 的一道门槛。**比如研发工作流要不要调整、实验设计的逻辑要不要改？什么时候 AI 能自己推翻一套沿用已久的实验范式，自己提出一套更高效的研究逻辑，AI 才真正成为了 “会进化的研究员”。在 Naive AI 的官方主页上，悄然写着这样一句标语：**“100x Intelligence for the pioneers”（为先驱者提供 100 倍的智能）。**![](https://jnexpert-oss1.oss-cn-beijing.aliyuncs.com/upload/article/1790631863080_8004.png)图注：Naive AI 官网标语AI for AI 的终局，从来不是为了干掉人类研究员。当我们回望人类群星闪耀时，那些一闪而过的灵感，不再因来不及落地，而无声消亡。"
+          },
+          {
+            "sourceId": "S2",
+            "quote": "若以上述严苛标准衡量，当前绝大多数AI系统都远未达标。为开发更优秀的AI，人类会负责设定目标、定义标准并筛选理想方案——现有的AI仍只是人类帮手，无法自建自我优化闭环。"
+          },
+          {
+            "sourceId": "S6",
+            "quote": "1. A person invokes an LLM to summarize the literature, to chart a research plan towards new theorems, or to directly generate chunks of (or entire) proofs.\n2. A person uses AI-derived tools, such as AlphaEvolve, to generate better proof elements."
+          }
+        ],
+        "claimId": "summary-2"
+      },
+      {
+        "text": "头部实验室正加速布局自动化研发，如OpenAI成立RSI团队并计划于2028年实现完全自动化研究员，Anthropic披露其内部80%以上可运行代码由Claude编写，Naive AI则通过重构注意力架构实现了以少量参数超越大模型的效率奇迹。",
+        "kind": "fact",
+        "references": [
+          {
+            "sourceId": "S1",
+            "quote": "过去两三年，行业最关注的是编程和数学：端到端完成复杂代码任务，推导悬而未决的数学难题。AI 由此具备了扎实的逻辑推演与代码工程落地能力。当这些能力成熟，一个更根本的问题浮出水面：能不能把它们用回 AI 自己身上？**2026年，“AI for AI”已经成为海外头部实验室公开的目标。**比如，**OpenAI**侧重前沿理论的自动化研究，在 9 月宣布其 AI 已具备“自动化研究实习生”的能力，专门成立 RSI（递归式自我改进）团队，目标在 2028 年 3 月前实现完全自动化的 AI 研究员，让 AI 自主生成、审计高质量训练数据，接管自身研发全流程；**Anthropic**侧重工程的自动化探索，在6月发布《When AI Builds Itself》报告时便披露，其内部 80% 以上的可运行代码已由 Claude 独立编写，每名工程师的产出效率提升了 8 倍。而9月曝光的最新进展中，其内部最核心的研发平台上，有30,000 个 AI Agent 同时协作，日夜不停地在数字沙盒里进行代码跑测与算法实验。**Google** 内部也在加码 AI for AI 的投入，一方面，推出自进化编码智能体 AlphaEvolve，加速 Gemini 的迭代。另一方面，Google 迎来人事地震，哈萨比斯卸任 Google DeepMind CEO全面转战 AGI 长期战略、全球事务以及 Isomorphic Labs 的 AI 药物研发。此外，Google 灵魂人物 Jeff Dean 前段时间官宣离职创办 Discovery Loop，专攻自动化机器学习。短短几周内，估值就被推到了 500 亿美元，连老东家 Google 也下场投资。国内，AI 参与 AI 研发的实践也在密集出现，而且切入的环节各不相同：面壁用 AI 编写预训练框架，智谱让 AI 搭建国产芯片上的推理基础设施。有的团队从训练框架入手，有的从推理系统入手，也有的直接研究\"会进化的智能体\"本身。AI 能接手的研发环节，正在一段一段被打通。**Naive AI 的尝试把这些环节串了起来。架构探索、训练系统、推理优化，AI 都参与其中；同时，模型本身也被专门训练去承担研发工作。它既是这套研发方式的产物，也是这套方式的下一个执行者。**这一差异化打法，让 Naive AI 仅创办7 个月，估值飙升至 14.2 亿美元。无数资本涌入，巨头纷纷押注。所有人都意识到，全面重构智能迭代速度这件事，能在有限资源内不断突破性能边界，或许才是通往 AGI 的第二增长曲线。当下，AI for AI 早已不是概念。AI 从只能帮工程师写单个 PyTorch 函数，进化到可以独立阅读顶会论文、编写完整训练脚本、调度 GPU 集群、分析日志报错、完成一键微调。以 Devin、Aider、OpenHands  为代表的研发智能体已经成熟，机器学习工程（MLE）正式成为 RSI 的核心试验场。"
+          },
+          {
+            "sourceId": "S1",
+            "quote": "******当 AI 成为研究员，************Naive‑N0.5‑Flash 是如何诞生的******现在AI大模型的构建不仅仅是研究工作，更是一套复杂的工业化研发体系。全球领先的人工智能公司依靠庞大的专家团队分工协作，支撑这套体系的运转，覆盖模型架构、基础设施、训练、推理、部署与评测等环节，每个前沿模型背后都是持续不断的实验、迭代与优化循环。**Naive AI 先做的是，研发环节的重新分工。**从成立的第一天起，Naive AI 就摒弃了传统以人类为中心的研发体系。传统的大模型研发，研究员要亲手写代码、调参数、跑实验、看曲线，全流程主导实验。这套工作下来，少则数周，多则数月，其中有不少是重复且枯燥的“工程脏活”。现在，这些活都交给了 AI 研究员。在 Naive AI 研发体系里，人类研究员把精力集中在三件事上：**提出目标，设定约束与评价标准，以及作出最终决策，**核心能力转向“科研品味”的高低。为了让 AI 可靠地承担执行层工作，Naive AI 建立一套以 AI 为中心的研发基础设施。简单说，就是给模型一个安全、隔离的运行环境，再配上 GPU 算力，让它能大规模稳定运行。这个系统每周能跑近千万个沙箱，最多能同时跑 10 万个。系统背后有一个统一平台，集中管理算力、环境、工具、权限和安全。**AI既是正在被实验、被升级的“产品”，同时又是写代码、改架构的“开发者”，由此诞生的 Naive‑N0.5‑Flash， AI 研发和编程能力突出。**这个小模型一头撞进了全球大模型考场，在专门针对 AI 研发能力的评测中，展现出了对标顶尖闭源模型的实力。 在考核前沿论文复现能力的 PaperBench 评测中，Naive-N0.5-Flash 超越了Claude Opus 4.7 、GPT-5.5 等主流模型。在考察机器学习实验能力的 MLE-bench-30 评测中，Naive-N0.5-Flash 超越了 Claude Sonnet 5、Gemini 3.6 Flash。这意味着它能像真正的科研人员一样，读懂晦涩的顶会论文并复现其实验。![](https://jnexpert-oss1.oss-cn-beijing.aliyuncs.com/upload/article/1790631861754_1155.png)图注：Naive-N0.5-Flash在考察AI研究能力的分类评测中，展现惊人的性能效率它还有不错的编程能力。在评估复杂编程能力的 SWE-bench Pro 上，Naive‑N0.5‑Flash 得分 73.6，超过 2.4T 参数的 Qwen 3.8 Max 。该模型仅以 15.5B 激活参数（不足自身总参数 6%），便超越了拥有 2.4T 参数的大模型，上演了一场以小胜大的效率奇迹。目前，模型权重和推理代码均以 MIT 许可证发布。同时提供 API 访问服务，输入Token每百万0.6元，输出Token每百万2.6元，缓存命中读取每百万Token 0.07元人民币，具备极高性价比。从一开始，Naive AI 专门强化了三种研究能力，分别是**读论文（复现前沿论文）****做实验（自主跑消融实验）****管理研究成果（系统化管理研究仓库与版本）**，这三件事正是人类研究员每天投入最多的事，也是让递归式自我改进（RSI）能闭环的三件事。让 AI 深度参与下一代大模型自己的研发，正是 Naive AI 的长期目标。"
+          }
+        ],
+        "claimId": "summary-3"
+      }
+    ],
+    "cards": [
+      {
+        "label": "计算资源平均回收率",
+        "value": "0.7",
+        "unit": "%",
+        "explanation": "AlphaEvolve为谷歌Borg系统生成的调度启发式方法在生产环境中运行超过一年后，平均持续回收了全球计算资源的这一比例。",
+        "period": "2025",
+        "scope": "谷歌全球数据中心生产环境部署",
+        "valueEvidence": "0.7",
+        "unitEvidence": "%",
+        "timeEvidence": "Mon, 16 Jun 2025",
+        "references": [
+          {
+            "sourceId": "S8",
+            "quote": "AlphaEvolve discovered a simple yet remarkably effective heuristic to help [Borg](https://research.google/pubs/large-scale-cluster-management-at-google-with-borg/?utm_source=deepmind.google&utm_medium=referral&utm_campaign=gdm&utm_content=) orchestrate Google's vast data centers more efficiently. This solution, now in production for over a year, continuously recovers, on average, 0.7% of Google’s worldwide compute resources. This sustained efficiency gain means that at any given moment, more tasks can be completed on the same computational footprint. AlphaEvolve's solution not only leads to strong performance but also offers significant operational advantages of human-readable code: interpretability, debuggability, predictability and ease of deployment."
+          },
+          {
+            "sourceId": "S13",
+            "quote": "From: Matej Balog [[view email](/show-email/3174c8c5/2506.13131)]   \n **[v1]** Mon, 16 Jun 2025 06:37:18 UTC (2,574 KB)"
+          }
+        ],
+        "claimId": "card-1"
+      },
+      {
+        "label": "内部代码自动编写占比",
+        "value": "80",
+        "unit": "%",
+        "explanation": "据2026年报道，Anthropic公司披露其内部超过80%的可运行代码已由Claude独立编写，每名工程师产出效率提升8倍。",
+        "period": "2026",
+        "scope": "Anthropic公司内部工程研发流程",
+        "valueEvidence": "80",
+        "unitEvidence": "%",
+        "timeEvidence": "2026年",
+        "references": [
+          {
+            "sourceId": "S1",
+            "quote": "过去两三年，行业最关注的是编程和数学：端到端完成复杂代码任务，推导悬而未决的数学难题。AI 由此具备了扎实的逻辑推演与代码工程落地能力。当这些能力成熟，一个更根本的问题浮出水面：能不能把它们用回 AI 自己身上？**2026年，“AI for AI”已经成为海外头部实验室公开的目标。**比如，**OpenAI**侧重前沿理论的自动化研究，在 9 月宣布其 AI 已具备“自动化研究实习生”的能力，专门成立 RSI（递归式自我改进）团队，目标在 2028 年 3 月前实现完全自动化的 AI 研究员，让 AI 自主生成、审计高质量训练数据，接管自身研发全流程；**Anthropic**侧重工程的自动化探索，在6月发布《When AI Builds Itself》报告时便披露，其内部 80% 以上的可运行代码已由 Claude 独立编写，每名工程师的产出效率提升了 8 倍。而9月曝光的最新进展中，其内部最核心的研发平台上，有30,000 个 AI Agent 同时协作，日夜不停地在数字沙盒里进行代码跑测与算法实验。**Google** 内部也在加码 AI for AI 的投入，一方面，推出自进化编码智能体 AlphaEvolve，加速 Gemini 的迭代。另一方面，Google 迎来人事地震，哈萨比斯卸任 Google DeepMind CEO全面转战 AGI 长期战略、全球事务以及 Isomorphic Labs 的 AI 药物研发。此外，Google 灵魂人物 Jeff Dean 前段时间官宣离职创办 Discovery Loop，专攻自动化机器学习。短短几周内，估值就被推到了 500 亿美元，连老东家 Google 也下场投资。国内，AI 参与 AI 研发的实践也在密集出现，而且切入的环节各不相同：面壁用 AI 编写预训练框架，智谱让 AI 搭建国产芯片上的推理基础设施。有的团队从训练框架入手，有的从推理系统入手，也有的直接研究\"会进化的智能体\"本身。AI 能接手的研发环节，正在一段一段被打通。**Naive AI 的尝试把这些环节串了起来。架构探索、训练系统、推理优化，AI 都参与其中；同时，模型本身也被专门训练去承担研发工作。它既是这套研发方式的产物，也是这套方式的下一个执行者。**这一差异化打法，让 Naive AI 仅创办7 个月，估值飙升至 14.2 亿美元。无数资本涌入，巨头纷纷押注。所有人都意识到，全面重构智能迭代速度这件事，能在有限资源内不断突破性能边界，或许才是通往 AGI 的第二增长曲线。当下，AI for AI 早已不是概念。AI 从只能帮工程师写单个 PyTorch 函数，进化到可以独立阅读顶会论文、编写完整训练脚本、调度 GPU 集群、分析日志报错、完成一键微调。以 Devin、Aider、OpenHands  为代表的研发智能体已经成熟，机器学习工程（MLE）正式成为 RSI 的核心试验场。"
+          }
+        ],
+        "claimId": "card-2"
+      }
+    ],
+    "limitations": [
+      "数据时效性差异：部分案例（如Naive AI的估值、Anthropic的代码占比）源自2026年的新闻报道或二手资料，而AlphaEvolve的核心技术细节主要基于2025年的论文与官方博客，不同来源对同一事件的描述可能存在口径差异。",
+      "验证瓶颈：AI生成的数学证明或复杂代码往往需要高昂的计算资源进行形式化验证，目前尚无法完全脱离人类专家或专用验证器实现全自动闭环确认。",
+      "泛化能力限制：现有AI研发成果多集中在有明确评估指标（如速度、精度、收敛性）的问题上，对于缺乏量化标准或依赖深层直觉、审美及全新范式的科研探索，AI仍处于辅助地位。",
+      "引用已进行来源、片段、数值锚点检查和模型辅助语义复核；翻译、时间口径和推断仍需对照原文人工核验。",
+      "未由工具返回的来源标题和发布日期显示未知；生成时间不代表资料发布时间。",
+      "信源类型按已识别的域名保守归类，同一类型的多个网站不算多类。"
+    ],
+    "generatedAt": "2026-10-06T09:47:57.051Z"
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "url": "https://www.jnexpert.com/article/detail?id=35963",
+      "title": "中训练、后训练持续升温，模型快速迭代，成为 AI for AI 最佳试炼场 - 锦囊专家官网 - 数字经济智库平台",
+      "sourceType": "未知",
+      "publishedAt": "2026-09-29",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S2",
+      "url": "https://www.huxiu.com/article/4879745.html",
+      "title": "AI 正着手打造更强的下一代AI-虎嗅网",
+      "sourceType": "未知",
+      "publishedAt": "2026-07-31",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S3",
+      "url": "https://www.youtube.com/watch?v=Ua7DZv0qGHQ",
+      "title": "【人工智能】AI开启算法自我演化 | AlphaEvolve | 多智能体强化学习 | 自主进化算法 | VAD CFR | SHOR PSRO | 反直觉机制 | 超越人类 | MARL突破",
+      "sourceType": "未知",
+      "publishedAt": "2026-03-18",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    },
+    {
+      "id": "S4",
+      "url": "https://ecas.cas.cn/xxkw/kbcd/201115_147683/ml/xxhcxyyyal/202505/t20250526_5069975.html",
+      "title": "DeepMind推出通用科学AI智能体 突破300年数学难题----中国科学院网信工作网",
+      "sourceType": "未知",
+      "publishedAt": "2025-05-26",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    },
+    {
+      "id": "S5",
+      "url": "https://www.infoq.cn/article/ypfywbfjrhdzzufbh3bg",
+      "title": "谷歌超强AI Agent 登场：攻克300年数学难题、改进芯片设计！编程迎来AlphaGo时刻？ - InfoQ",
+      "sourceType": "未知",
+      "publishedAt": "2025-05-15",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    },
+    {
+      "id": "S6",
+      "url": "https://research.google/blog/ai-as-a-research-partner-advancing-theoretical-computer-science-with-alphaevolve",
+      "title": "AI as a research partner: Advancing theoretical computer science with AlphaEvolve",
+      "sourceType": "机构报告",
+      "publishedAt": "2025-09-30",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S7",
+      "url": "https://www.mindstudio.ai/blog/what-is-alphaevolve-google-ai-self-improvement-2",
+      "title": "What Is AlphaEvolve? How Google's AI Is Already Improving Its Own Training | MindStudio",
+      "sourceType": "未知",
+      "publishedAt": "2026-05-14",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    },
+    {
+      "id": "S8",
+      "url": "https://deepmind.google/blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms",
+      "title": "AlphaEvolve: A Gemini-powered coding agent for designing advanced algorithms — Google DeepMind",
+      "sourceType": "机构报告",
+      "publishedAt": "2025-05-14",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S9",
+      "url": "https://cloud.google.com/blog/products/ai-machine-learning/alphaevolve-is-available-for-everyone",
+      "title": "AlphaEvolve is available for everyone | Google Cloud Blog",
+      "sourceType": "未知",
+      "publishedAt": "2026-07-09",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    },
+    {
+      "id": "S10",
+      "url": "https://adg.csdn.net/696f5567437a6b40336a0936.html",
+      "title": "AI科学家的里程碑：首篇全AI生成论文通过同行评审，开启科研自动化新纪元_人工智能_这是Jamon-智能体开发者社区",
+      "sourceType": "未知",
+      "publishedAt": "2025-07-12",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    },
+    {
+      "id": "S11",
+      "url": "https://www.alphaxiv.org/abs/2510.06056",
+      "title": "Scientific Algorithm Discovery by Augmenting AlphaEvolve with Deep Research | alphaXiv",
+      "sourceType": "未知",
+      "publishedAt": "2025-10-07",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    },
+    {
+      "id": "S12",
+      "url": "https://inferencebysequoia.substack.com/p/alphaevolve-the-next-leap-in-ai-powered",
+      "title": "AlphaEvolve: The Next Leap in AI-Powered Scientific Discovery",
+      "sourceType": "未知",
+      "publishedAt": "2025-10-06",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    },
+    {
+      "id": "S13",
+      "url": "https://arxiv.org/abs/2506.13131",
+      "title": "[2506.13131] AlphaEvolve: A coding agent for scientific and algorithmic discovery",
+      "sourceType": "研究论文",
+      "publishedAt": "2025-06-16",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S14",
+      "url": "https://www.reddit.com/r/MachineLearning/comments/1kmxi4z/r_alphaevolve_a_coding_agent_for_scientific_and",
+      "title": "A coding agent for scientific and algorithmic discovery",
+      "sourceType": "未知",
+      "publishedAt": "2025-10-06",
+      "provider": "tavily",
+      "contentOrigin": "extract_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    },
+    {
+      "id": "S15",
+      "url": "https://www.researchgate.net/publication/392736011_AlphaEvolve_A_coding_agent_for_scientific_and_algorithmic_discovery",
+      "title": "(PDF) AlphaEvolve: A coding agent for scientific and ...",
+      "sourceType": "未知",
+      "publishedAt": "2025-06-16",
+      "provider": "tavily",
+      "hasEvidence": false,
+      "status": "extraction_failed",
+      "statusReason": "Tavily Extract 未成功返回该 URL 的正文。"
+    },
+    {
+      "id": "S16",
+      "url": "https://storage.googleapis.com/deepmind-media/DeepMind.com/Blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/AlphaEvolve.pdf",
+      "title": "AlphaEvolve: A coding agent for scientific and algorithmic ...",
+      "sourceType": "未知",
+      "publishedAt": null,
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    },
+    {
+      "id": "S17",
+      "url": "https://www.youtube.com/watch?v=CgfUor2rcBg",
+      "title": "AlphaEvolve: A coding agent for scientific and algorithmic discovery (May 2025)",
+      "sourceType": "未知",
+      "publishedAt": "2025-05-18",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    },
+    {
+      "id": "S18",
+      "url": "https://artgor.medium.com/paper-review-alphaevolve-a-coding-agent-for-scientific-and-algorithmic-discovery-5732a876c2e2",
+      "title": "Medium",
+      "sourceType": "未知",
+      "publishedAt": "2025-05-15",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    },
+    {
+      "id": "S19",
+      "url": "https://www.alphaxiv.org/abs/2506.13131",
+      "title": "AlphaEvolve: A coding agent for scientific and algorithmic discovery | alphaXiv",
+      "sourceType": "未知",
+      "publishedAt": "2025-06-16",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    },
+    {
+      "id": "S20",
+      "url": "https://www.youtube.com/watch?v=vC9nAosXrJw",
+      "title": "Wild breakthrough on Math after 56 years... [Exclusive]",
+      "sourceType": "未知",
+      "publishedAt": "2025-05-14",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "extracted_unused",
+      "statusReason": "已取得可用正文，但本次最终报告没有引用该来源。"
+    }
+  ],
+  "warnings": [
+    "1 个来源提取失败，不用于本次报告的事实或量化指标。",
+    "“复数矩阵乘法标量次数”的证据、数值或口径锚点未通过校验，已移除。",
+    "“全球计算资源回收比例”的证据、数值或口径锚点未通过校验，已移除。",
+    "“FlashAttention内核加速比”的证据、数值或口径锚点未通过校验，已移除。",
+    "“矩阵乘法标量运算次数”的证据、数值或口径锚点未通过校验，已移除。"
+  ],
+  "coverage": {
+    "requiredSources": 5,
+    "eligibleSourceCount": 8,
+    "citedSourceCount": 5,
+    "citedSourceTypes": [
+      "机构报告",
+      "研究论文"
+    ],
+    "requirementMet": true
+  },
+  "socialContent": {
+    "status": "ready",
+    "text": "AI正在从辅助工具转变为研发主体，这种变化并非科幻情节，而是发生在谷歌数据中心和头部实验室的真实场景。\n\nAlphaEvolve等进化式编码智能体已在算法发现和硬件优化中取得突破，例如在4x4复数矩阵乘法中将标量乘法次数降至48次，并持续回收谷歌全球0.7%的计算资源。\n\n与此同时，Anthropic披露其内部超过80%的可运行代码已由Claude独立编写，OpenAI则成立RSI团队，目标在2028年实现完全自动化的AI研究员。\n\n尽管能力强劲，当前“AI for AI”仍主要处于弱递归自我改进阶段。人类仍需负责设定目标、定义标准及最终决策，AI更像是在已知框架内完成参数调优的科研实习生。\n\n局限在于验证周期长、缺乏因果推理能力及难以开创全新研究范式。纯文本训练的大模型往往只能发现语言层面的相关性，而非真正的逻辑因果，且无法独立提出颠覆性的实验设计。\n\nNaive AI通过重构注意力架构实现了以小胜大，其模型在特定评测中超越更大参数量的竞品，但这也印证了AI目前擅长的是在既定规则下的极致优化，而非无中生有的科学直觉。\n\n当AI接手更多重复性工程工作，人类研究员的核心价值正转向“科研品味”，即判断哪些方向值得探索、如何定义成功以及何时推翻旧范式。\n\n在自动化闭环尚未完全建立之前，我们该如何重新评估那些依赖直觉与审美、难以被量化指标捕捉的科学发现过程？",
+    "characterCount": 584,
+    "weightedLength": 1072,
+    "targetLength": 2000,
+    "warnings": [],
+    "claimReferences": [
+      {
+        "paragraphIndex": 0,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S13",
+        "evidenceIds": [
+          "S13-E7"
+        ],
+        "quote": "[View PDF](/pdf/2506.13131) [HTML (experimental)](https://arxiv.org/html/2506.13131v1)\n> Abstract:In this white paper, we present AlphaEvolve, an evolutionary coding agent that substantially enhances capabilities of state-of-the-art LLMs on highly challenging tasks such as tackling open scientific problems or optimizing critical pieces of computational infrastructure. AlphaEvolve orchestrates an autonomous pipeline of LLMs, whose task is to improve an algorithm by making direct changes to the code. Using an evolutionary approach, continuously receiving feedback from one or more evaluators, AlphaEvolve iteratively improves the algorithm, potentially leading to new scientific and practical discoveries. We demonstrate the broad applicability of this approach by applying it to a number of important computational problems. When applied to optimizing critical components of large-scale computational stacks at Google, AlphaEvolve developed a more efficient scheduling algorithm for data centers, found a functionally equivalent simplification in the circuit design of hardware accelerators, and accelerated the training of the LLM underpinning AlphaEvolve itself. Furthermore, AlphaEvolve discovered novel, provably correct algorithms that surpass state-of-the-art solutions on a spectrum of problems in mathematics and computer science, significantly expanding the scope of prior automated discovery methods (Romera-Paredes et al., 2023). Notably, AlphaEvolve developed a search algorithm that found a procedure to multiply two $4 \\times 4$ complex-valued matrices using $48$ scalar multiplications; offering the first improvement, after 56 years, over Strassen's algorithm in this setting. We believe AlphaEvolve and coding agents like it can have a significant impact in improving solutions of problems across many areas of science and computation."
+      },
+      {
+        "paragraphIndex": 0,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S8",
+        "evidenceIds": [
+          "S8-E17"
+        ],
+        "quote": "AlphaEvolve discovered a simple yet remarkably effective heuristic to help [Borg](https://research.google/pubs/large-scale-cluster-management-at-google-with-borg/?utm_source=deepmind.google&utm_medium=referral&utm_campaign=gdm&utm_content=) orchestrate Google's vast data centers more efficiently. This solution, now in production for over a year, continuously recovers, on average, 0.7% of Google’s worldwide compute resources. This sustained efficiency gain means that at any given moment, more tasks can be completed on the same computational footprint. AlphaEvolve's solution not only leads to strong performance but also offers significant operational advantages of human-readable code: interpretability, debuggability, predictability and ease of deployment."
+      },
+      {
+        "paragraphIndex": 0,
+        "reportClaimIds": [
+          "summary-3"
+        ],
+        "sourceId": "S1",
+        "evidenceIds": [
+          "S1-E17"
+        ],
+        "quote": "过去两三年，行业最关注的是编程和数学：端到端完成复杂代码任务，推导悬而未决的数学难题。AI 由此具备了扎实的逻辑推演与代码工程落地能力。当这些能力成熟，一个更根本的问题浮出水面：能不能把它们用回 AI 自己身上？**2026年，“AI for AI”已经成为海外头部实验室公开的目标。**比如，**OpenAI**侧重前沿理论的自动化研究，在 9 月宣布其 AI 已具备“自动化研究实习生”的能力，专门成立 RSI（递归式自我改进）团队，目标在 2028 年 3 月前实现完全自动化的 AI 研究员，让 AI 自主生成、审计高质量训练数据，接管自身研发全流程；**Anthropic**侧重工程的自动化探索，在6月发布《When AI Builds Itself》报告时便披露，其内部 80% 以上的可运行代码已由 Claude 独立编写，每名工程师的产出效率提升了 8 倍。而9月曝光的最新进展中，其内部最核心的研发平台上，有30,000 个 AI Agent 同时协作，日夜不停地在数字沙盒里进行代码跑测与算法实验。**Google** 内部也在加码 AI for AI 的投入，一方面，推出自进化编码智能体 AlphaEvolve，加速 Gemini 的迭代。另一方面，Google 迎来人事地震，哈萨比斯卸任 Google DeepMind CEO全面转战 AGI 长期战略、全球事务以及 Isomorphic Labs 的 AI 药物研发。此外，Google 灵魂人物 Jeff Dean 前段时间官宣离职创办 Discovery Loop，专攻自动化机器学习。短短几周内，估值就被推到了 500 亿美元，连老东家 Google 也下场投资。国内，AI 参与 AI 研发的实践也在密集出现，而且切入的环节各不相同：面壁用 AI 编写预训练框架，智谱让 AI 搭建国产芯片上的推理基础设施。有的团队从训练框架入手，有的从推理系统入手，也有的直接研究\"会进化的智能体\"本身。AI 能接手的研发环节，正在一段一段被打通。**Naive AI 的尝试把这些环节串了起来。架构探索、训练系统、推理优化，AI 都参与其中；同时，模型本身也被专门训练去承担研发工作。它既是这套研发方式的产物，也是这套方式的下一个执行者。**这一差异化打法，让 Naive AI 仅创办7 个月，估值飙升至 14.2 亿美元。无数资本涌入，巨头纷纷押注。所有人都意识到，全面重构智能迭代速度这件事，能在有限资源内不断突破性能边界，或许才是通往 AGI 的第二增长曲线。当下，AI for AI 早已不是概念。AI 从只能帮工程师写单个 PyTorch 函数，进化到可以独立阅读顶会论文、编写完整训练脚本、调度 GPU 集群、分析日志报错、完成一键微调。以 Devin、Aider、OpenHands  为代表的研发智能体已经成熟，机器学习工程（MLE）正式成为 RSI 的核心试验场。"
+      },
+      {
+        "paragraphIndex": 0,
+        "reportClaimIds": [
+          "summary-3"
+        ],
+        "sourceId": "S1",
+        "evidenceIds": [
+          "S1-E19"
+        ],
+        "quote": "******当 AI 成为研究员，************Naive‑N0.5‑Flash 是如何诞生的******现在AI大模型的构建不仅仅是研究工作，更是一套复杂的工业化研发体系。全球领先的人工智能公司依靠庞大的专家团队分工协作，支撑这套体系的运转，覆盖模型架构、基础设施、训练、推理、部署与评测等环节，每个前沿模型背后都是持续不断的实验、迭代与优化循环。**Naive AI 先做的是，研发环节的重新分工。**从成立的第一天起，Naive AI 就摒弃了传统以人类为中心的研发体系。传统的大模型研发，研究员要亲手写代码、调参数、跑实验、看曲线，全流程主导实验。这套工作下来，少则数周，多则数月，其中有不少是重复且枯燥的“工程脏活”。现在，这些活都交给了 AI 研究员。在 Naive AI 研发体系里，人类研究员把精力集中在三件事上：**提出目标，设定约束与评价标准，以及作出最终决策，**核心能力转向“科研品味”的高低。为了让 AI 可靠地承担执行层工作，Naive AI 建立一套以 AI 为中心的研发基础设施。简单说，就是给模型一个安全、隔离的运行环境，再配上 GPU 算力，让它能大规模稳定运行。这个系统每周能跑近千万个沙箱，最多能同时跑 10 万个。系统背后有一个统一平台，集中管理算力、环境、工具、权限和安全。**AI既是正在被实验、被升级的“产品”，同时又是写代码、改架构的“开发者”，由此诞生的 Naive‑N0.5‑Flash， AI 研发和编程能力突出。**这个小模型一头撞进了全球大模型考场，在专门针对 AI 研发能力的评测中，展现出了对标顶尖闭源模型的实力。 在考核前沿论文复现能力的 PaperBench 评测中，Naive-N0.5-Flash 超越了Claude Opus 4.7 、GPT-5.5 等主流模型。在考察机器学习实验能力的 MLE-bench-30 评测中，Naive-N0.5-Flash 超越了 Claude Sonnet 5、Gemini 3.6 Flash。这意味着它能像真正的科研人员一样，读懂晦涩的顶会论文并复现其实验。![](https://jnexpert-oss1.oss-cn-beijing.aliyuncs.com/upload/article/1790631861754_1155.png)图注：Naive-N0.5-Flash在考察AI研究能力的分类评测中，展现惊人的性能效率它还有不错的编程能力。在评估复杂编程能力的 SWE-bench Pro 上，Naive‑N0.5‑Flash 得分 73.6，超过 2.4T 参数的 Qwen 3.8 Max 。该模型仅以 15.5B 激活参数（不足自身总参数 6%），便超越了拥有 2.4T 参数的大模型，上演了一场以小胜大的效率奇迹。目前，模型权重和推理代码均以 MIT 许可证发布。同时提供 API 访问服务，输入Token每百万0.6元，输出Token每百万2.6元，缓存命中读取每百万Token 0.07元人民币，具备极高性价比。从一开始，Naive AI 专门强化了三种研究能力，分别是**读论文（复现前沿论文）****做实验（自主跑消融实验）****管理研究成果（系统化管理研究仓库与版本）**，这三件事正是人类研究员每天投入最多的事，也是让递归式自我改进（RSI）能闭环的三件事。让 AI 深度参与下一代大模型自己的研发，正是 Naive AI 的长期目标。"
+      },
+      {
+        "paragraphIndex": 1,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S13",
+        "evidenceIds": [
+          "S13-E7"
+        ],
+        "quote": "[View PDF](/pdf/2506.13131) [HTML (experimental)](https://arxiv.org/html/2506.13131v1)\n> Abstract:In this white paper, we present AlphaEvolve, an evolutionary coding agent that substantially enhances capabilities of state-of-the-art LLMs on highly challenging tasks such as tackling open scientific problems or optimizing critical pieces of computational infrastructure. AlphaEvolve orchestrates an autonomous pipeline of LLMs, whose task is to improve an algorithm by making direct changes to the code. Using an evolutionary approach, continuously receiving feedback from one or more evaluators, AlphaEvolve iteratively improves the algorithm, potentially leading to new scientific and practical discoveries. We demonstrate the broad applicability of this approach by applying it to a number of important computational problems. When applied to optimizing critical components of large-scale computational stacks at Google, AlphaEvolve developed a more efficient scheduling algorithm for data centers, found a functionally equivalent simplification in the circuit design of hardware accelerators, and accelerated the training of the LLM underpinning AlphaEvolve itself. Furthermore, AlphaEvolve discovered novel, provably correct algorithms that surpass state-of-the-art solutions on a spectrum of problems in mathematics and computer science, significantly expanding the scope of prior automated discovery methods (Romera-Paredes et al., 2023). Notably, AlphaEvolve developed a search algorithm that found a procedure to multiply two $4 \\times 4$ complex-valued matrices using $48$ scalar multiplications; offering the first improvement, after 56 years, over Strassen's algorithm in this setting. We believe AlphaEvolve and coding agents like it can have a significant impact in improving solutions of problems across many areas of science and computation."
+      },
+      {
+        "paragraphIndex": 1,
+        "reportClaimIds": [
+          "summary-1",
+          "card-1"
+        ],
+        "sourceId": "S8",
+        "evidenceIds": [
+          "S8-E17"
+        ],
+        "quote": "AlphaEvolve discovered a simple yet remarkably effective heuristic to help [Borg](https://research.google/pubs/large-scale-cluster-management-at-google-with-borg/?utm_source=deepmind.google&utm_medium=referral&utm_campaign=gdm&utm_content=) orchestrate Google's vast data centers more efficiently. This solution, now in production for over a year, continuously recovers, on average, 0.7% of Google’s worldwide compute resources. This sustained efficiency gain means that at any given moment, more tasks can be completed on the same computational footprint. AlphaEvolve's solution not only leads to strong performance but also offers significant operational advantages of human-readable code: interpretability, debuggability, predictability and ease of deployment."
+      },
+      {
+        "paragraphIndex": 1,
+        "reportClaimIds": [
+          "card-1"
+        ],
+        "sourceId": "S13",
+        "evidenceIds": [
+          "S13-E9"
+        ],
+        "quote": "From: Matej Balog [[view email](/show-email/3174c8c5/2506.13131)]   \n **[v1]** Mon, 16 Jun 2025 06:37:18 UTC (2,574 KB)"
+      },
+      {
+        "paragraphIndex": 2,
+        "reportClaimIds": [
+          "summary-3",
+          "card-2"
+        ],
+        "sourceId": "S1",
+        "evidenceIds": [
+          "S1-E17"
+        ],
+        "quote": "过去两三年，行业最关注的是编程和数学：端到端完成复杂代码任务，推导悬而未决的数学难题。AI 由此具备了扎实的逻辑推演与代码工程落地能力。当这些能力成熟，一个更根本的问题浮出水面：能不能把它们用回 AI 自己身上？**2026年，“AI for AI”已经成为海外头部实验室公开的目标。**比如，**OpenAI**侧重前沿理论的自动化研究，在 9 月宣布其 AI 已具备“自动化研究实习生”的能力，专门成立 RSI（递归式自我改进）团队，目标在 2028 年 3 月前实现完全自动化的 AI 研究员，让 AI 自主生成、审计高质量训练数据，接管自身研发全流程；**Anthropic**侧重工程的自动化探索，在6月发布《When AI Builds Itself》报告时便披露，其内部 80% 以上的可运行代码已由 Claude 独立编写，每名工程师的产出效率提升了 8 倍。而9月曝光的最新进展中，其内部最核心的研发平台上，有30,000 个 AI Agent 同时协作，日夜不停地在数字沙盒里进行代码跑测与算法实验。**Google** 内部也在加码 AI for AI 的投入，一方面，推出自进化编码智能体 AlphaEvolve，加速 Gemini 的迭代。另一方面，Google 迎来人事地震，哈萨比斯卸任 Google DeepMind CEO全面转战 AGI 长期战略、全球事务以及 Isomorphic Labs 的 AI 药物研发。此外，Google 灵魂人物 Jeff Dean 前段时间官宣离职创办 Discovery Loop，专攻自动化机器学习。短短几周内，估值就被推到了 500 亿美元，连老东家 Google 也下场投资。国内，AI 参与 AI 研发的实践也在密集出现，而且切入的环节各不相同：面壁用 AI 编写预训练框架，智谱让 AI 搭建国产芯片上的推理基础设施。有的团队从训练框架入手，有的从推理系统入手，也有的直接研究\"会进化的智能体\"本身。AI 能接手的研发环节，正在一段一段被打通。**Naive AI 的尝试把这些环节串了起来。架构探索、训练系统、推理优化，AI 都参与其中；同时，模型本身也被专门训练去承担研发工作。它既是这套研发方式的产物，也是这套方式的下一个执行者。**这一差异化打法，让 Naive AI 仅创办7 个月，估值飙升至 14.2 亿美元。无数资本涌入，巨头纷纷押注。所有人都意识到，全面重构智能迭代速度这件事，能在有限资源内不断突破性能边界，或许才是通往 AGI 的第二增长曲线。当下，AI for AI 早已不是概念。AI 从只能帮工程师写单个 PyTorch 函数，进化到可以独立阅读顶会论文、编写完整训练脚本、调度 GPU 集群、分析日志报错、完成一键微调。以 Devin、Aider、OpenHands  为代表的研发智能体已经成熟，机器学习工程（MLE）正式成为 RSI 的核心试验场。"
+      },
+      {
+        "paragraphIndex": 2,
+        "reportClaimIds": [
+          "summary-3"
+        ],
+        "sourceId": "S1",
+        "evidenceIds": [
+          "S1-E19"
+        ],
+        "quote": "******当 AI 成为研究员，************Naive‑N0.5‑Flash 是如何诞生的******现在AI大模型的构建不仅仅是研究工作，更是一套复杂的工业化研发体系。全球领先的人工智能公司依靠庞大的专家团队分工协作，支撑这套体系的运转，覆盖模型架构、基础设施、训练、推理、部署与评测等环节，每个前沿模型背后都是持续不断的实验、迭代与优化循环。**Naive AI 先做的是，研发环节的重新分工。**从成立的第一天起，Naive AI 就摒弃了传统以人类为中心的研发体系。传统的大模型研发，研究员要亲手写代码、调参数、跑实验、看曲线，全流程主导实验。这套工作下来，少则数周，多则数月，其中有不少是重复且枯燥的“工程脏活”。现在，这些活都交给了 AI 研究员。在 Naive AI 研发体系里，人类研究员把精力集中在三件事上：**提出目标，设定约束与评价标准，以及作出最终决策，**核心能力转向“科研品味”的高低。为了让 AI 可靠地承担执行层工作，Naive AI 建立一套以 AI 为中心的研发基础设施。简单说，就是给模型一个安全、隔离的运行环境，再配上 GPU 算力，让它能大规模稳定运行。这个系统每周能跑近千万个沙箱，最多能同时跑 10 万个。系统背后有一个统一平台，集中管理算力、环境、工具、权限和安全。**AI既是正在被实验、被升级的“产品”，同时又是写代码、改架构的“开发者”，由此诞生的 Naive‑N0.5‑Flash， AI 研发和编程能力突出。**这个小模型一头撞进了全球大模型考场，在专门针对 AI 研发能力的评测中，展现出了对标顶尖闭源模型的实力。 在考核前沿论文复现能力的 PaperBench 评测中，Naive-N0.5-Flash 超越了Claude Opus 4.7 、GPT-5.5 等主流模型。在考察机器学习实验能力的 MLE-bench-30 评测中，Naive-N0.5-Flash 超越了 Claude Sonnet 5、Gemini 3.6 Flash。这意味着它能像真正的科研人员一样，读懂晦涩的顶会论文并复现其实验。![](https://jnexpert-oss1.oss-cn-beijing.aliyuncs.com/upload/article/1790631861754_1155.png)图注：Naive-N0.5-Flash在考察AI研究能力的分类评测中，展现惊人的性能效率它还有不错的编程能力。在评估复杂编程能力的 SWE-bench Pro 上，Naive‑N0.5‑Flash 得分 73.6，超过 2.4T 参数的 Qwen 3.8 Max 。该模型仅以 15.5B 激活参数（不足自身总参数 6%），便超越了拥有 2.4T 参数的大模型，上演了一场以小胜大的效率奇迹。目前，模型权重和推理代码均以 MIT 许可证发布。同时提供 API 访问服务，输入Token每百万0.6元，输出Token每百万2.6元，缓存命中读取每百万Token 0.07元人民币，具备极高性价比。从一开始，Naive AI 专门强化了三种研究能力，分别是**读论文（复现前沿论文）****做实验（自主跑消融实验）****管理研究成果（系统化管理研究仓库与版本）**，这三件事正是人类研究员每天投入最多的事，也是让递归式自我改进（RSI）能闭环的三件事。让 AI 深度参与下一代大模型自己的研发，正是 Naive AI 的长期目标。"
+      },
+      {
+        "paragraphIndex": 3,
+        "reportClaimIds": [
+          "summary-2"
+        ],
+        "sourceId": "S1",
+        "evidenceIds": [
+          "S1-E23"
+        ],
+        "quote": "******深水区思辨：************AI 研究员迈向“强 RSI”的五大卡点******从 NaiveRT 的 151 轮迭代，到 AutoWM 的 400 小时探索，两个真实案例清晰地展现了当前 AI 研究员的能力边界。但重新审视整个行业的进展，我们仍处在**弱 RSI**的起点：AI 的角色更像刚入行的科研实习生，能在已知框架内完成参数调优与方案组合，远未达到独立主导完整科学研究的阶段。而距离真正能够自主阅读前沿文献、提出研究假设、调度算力资源、端到端完成模型迭代的**强 RSI**形态，即全自动 AI 研究员，OpenAI 给出的目标节点是 2028 年。这中间，还有许多卡点无法跨越。首先是**验证难**软件代码写完可以马上运行并获得及时反馈，但模型训练的反馈周期要漫长得多。151 轮实验看似密集，背后是算力的并行堆砌，而非 AI 本身的思考速度。越往底层架构走、越靠近预训练环节，AI 的迭代效率就越受限于物理算力与训练周期。它可以一口气生成上百个候选方案，但最终能验证多少，依然要等算力排队，要等训练跑完。如果涉及机器人、材料科学等物理世界的实验，反馈周期和成本更会随实验规模呈指数级上升。比验证难更深一层的困境，是**发现能力**当前所有 AI for AI 的迭代，本质上都是现有知识的排列组合与参数调优。AI 可以把已知方向的研究做得又快又极致，但无法独立开创出全新的研究范式。当年 Transformer 能取代 RNN，需要对领域的深层理解、对未来方向的直觉判断，甚至一定的审美与运气。这些就是人类研究员的 “科研品味”，也是当前 AI 无法替代的核心价值。再往底层剖析，则绕不开模型**因果能力的匮乏**纯文本语料训练出来的大模型，因果判断天然不稳定，逻辑推演极易受到表述形式的干扰。这也正是杨立昆近年不遗余力推崇世界模型的核心原因：只有在与物理世界的交互中习得的因果律才是扎实的。纯文本里学到的 “因果”，很多时候只是语言层面的相关性，而非真正的逻辑因果。在世界模型实验中，AI 敏锐地发现了 “部分评测指标无需参考视频” 的规律，并以此优化了输出策略，最终拿到了更高的分数。但这个规律，是底层逻辑的必然，还是特定数据集上的偶然？AI 能高效地发现关联，却很难独立判断这个关联是不是真正的因果。同时，**评估器能力不足**也是一个迫切的难题。科学研究最核心的部分在于科研品味，而这种创新性与长期价值很难被量化成明确的指标。如果训练系统一味使用可量化的跑分做奖励信号，AI 会倾向于为了刷高指标而进行投机优化，反而会牺牲真正的创新性。然而，这些都还不算真正的深水区。**元递归，也就是“迭代的方法本身”，才是从弱 RSI 走向强 RSI 的一道门槛。**比如研发工作流要不要调整、实验设计的逻辑要不要改？什么时候 AI 能自己推翻一套沿用已久的实验范式，自己提出一套更高效的研究逻辑，AI 才真正成为了 “会进化的研究员”。在 Naive AI 的官方主页上，悄然写着这样一句标语：**“100x Intelligence for the pioneers”（为先驱者提供 100 倍的智能）。**![](https://jnexpert-oss1.oss-cn-beijing.aliyuncs.com/upload/article/1790631863080_8004.png)图注：Naive AI 官网标语AI for AI 的终局，从来不是为了干掉人类研究员。当我们回望人类群星闪耀时，那些一闪而过的灵感，不再因来不及落地，而无声消亡。"
+      },
+      {
+        "paragraphIndex": 3,
+        "reportClaimIds": [
+          "summary-2"
+        ],
+        "sourceId": "S2",
+        "evidenceIds": [
+          "S2-E8"
+        ],
+        "quote": "若以上述严苛标准衡量，当前绝大多数AI系统都远未达标。为开发更优秀的AI，人类会负责设定目标、定义标准并筛选理想方案——现有的AI仍只是人类帮手，无法自建自我优化闭环。"
+      },
+      {
+        "paragraphIndex": 3,
+        "reportClaimIds": [
+          "summary-2"
+        ],
+        "sourceId": "S6",
+        "evidenceIds": [
+          "S6-E9"
+        ],
+        "quote": "1. A person invokes an LLM to summarize the literature, to chart a research plan towards new theorems, or to directly generate chunks of (or entire) proofs.\n2. A person uses AI-derived tools, such as AlphaEvolve, to generate better proof elements."
+      },
+      {
+        "paragraphIndex": 4,
+        "reportClaimIds": [
+          "summary-2"
+        ],
+        "sourceId": "S1",
+        "evidenceIds": [
+          "S1-E23"
+        ],
+        "quote": "******深水区思辨：************AI 研究员迈向“强 RSI”的五大卡点******从 NaiveRT 的 151 轮迭代，到 AutoWM 的 400 小时探索，两个真实案例清晰地展现了当前 AI 研究员的能力边界。但重新审视整个行业的进展，我们仍处在**弱 RSI**的起点：AI 的角色更像刚入行的科研实习生，能在已知框架内完成参数调优与方案组合，远未达到独立主导完整科学研究的阶段。而距离真正能够自主阅读前沿文献、提出研究假设、调度算力资源、端到端完成模型迭代的**强 RSI**形态，即全自动 AI 研究员，OpenAI 给出的目标节点是 2028 年。这中间，还有许多卡点无法跨越。首先是**验证难**软件代码写完可以马上运行并获得及时反馈，但模型训练的反馈周期要漫长得多。151 轮实验看似密集，背后是算力的并行堆砌，而非 AI 本身的思考速度。越往底层架构走、越靠近预训练环节，AI 的迭代效率就越受限于物理算力与训练周期。它可以一口气生成上百个候选方案，但最终能验证多少，依然要等算力排队，要等训练跑完。如果涉及机器人、材料科学等物理世界的实验，反馈周期和成本更会随实验规模呈指数级上升。比验证难更深一层的困境，是**发现能力**当前所有 AI for AI 的迭代，本质上都是现有知识的排列组合与参数调优。AI 可以把已知方向的研究做得又快又极致，但无法独立开创出全新的研究范式。当年 Transformer 能取代 RNN，需要对领域的深层理解、对未来方向的直觉判断，甚至一定的审美与运气。这些就是人类研究员的 “科研品味”，也是当前 AI 无法替代的核心价值。再往底层剖析，则绕不开模型**因果能力的匮乏**纯文本语料训练出来的大模型，因果判断天然不稳定，逻辑推演极易受到表述形式的干扰。这也正是杨立昆近年不遗余力推崇世界模型的核心原因：只有在与物理世界的交互中习得的因果律才是扎实的。纯文本里学到的 “因果”，很多时候只是语言层面的相关性，而非真正的逻辑因果。在世界模型实验中，AI 敏锐地发现了 “部分评测指标无需参考视频” 的规律，并以此优化了输出策略，最终拿到了更高的分数。但这个规律，是底层逻辑的必然，还是特定数据集上的偶然？AI 能高效地发现关联，却很难独立判断这个关联是不是真正的因果。同时，**评估器能力不足**也是一个迫切的难题。科学研究最核心的部分在于科研品味，而这种创新性与长期价值很难被量化成明确的指标。如果训练系统一味使用可量化的跑分做奖励信号，AI 会倾向于为了刷高指标而进行投机优化，反而会牺牲真正的创新性。然而，这些都还不算真正的深水区。**元递归，也就是“迭代的方法本身”，才是从弱 RSI 走向强 RSI 的一道门槛。**比如研发工作流要不要调整、实验设计的逻辑要不要改？什么时候 AI 能自己推翻一套沿用已久的实验范式，自己提出一套更高效的研究逻辑，AI 才真正成为了 “会进化的研究员”。在 Naive AI 的官方主页上，悄然写着这样一句标语：**“100x Intelligence for the pioneers”（为先驱者提供 100 倍的智能）。**![](https://jnexpert-oss1.oss-cn-beijing.aliyuncs.com/upload/article/1790631863080_8004.png)图注：Naive AI 官网标语AI for AI 的终局，从来不是为了干掉人类研究员。当我们回望人类群星闪耀时，那些一闪而过的灵感，不再因来不及落地，而无声消亡。"
+      },
+      {
+        "paragraphIndex": 4,
+        "reportClaimIds": [
+          "summary-2"
+        ],
+        "sourceId": "S2",
+        "evidenceIds": [
+          "S2-E8"
+        ],
+        "quote": "若以上述严苛标准衡量，当前绝大多数AI系统都远未达标。为开发更优秀的AI，人类会负责设定目标、定义标准并筛选理想方案——现有的AI仍只是人类帮手，无法自建自我优化闭环。"
+      },
+      {
+        "paragraphIndex": 4,
+        "reportClaimIds": [
+          "summary-2"
+        ],
+        "sourceId": "S6",
+        "evidenceIds": [
+          "S6-E9"
+        ],
+        "quote": "1. A person invokes an LLM to summarize the literature, to chart a research plan towards new theorems, or to directly generate chunks of (or entire) proofs.\n2. A person uses AI-derived tools, such as AlphaEvolve, to generate better proof elements."
+      },
+      {
+        "paragraphIndex": 5,
+        "reportClaimIds": [
+          "summary-3"
+        ],
+        "sourceId": "S1",
+        "evidenceIds": [
+          "S1-E17"
+        ],
+        "quote": "过去两三年，行业最关注的是编程和数学：端到端完成复杂代码任务，推导悬而未决的数学难题。AI 由此具备了扎实的逻辑推演与代码工程落地能力。当这些能力成熟，一个更根本的问题浮出水面：能不能把它们用回 AI 自己身上？**2026年，“AI for AI”已经成为海外头部实验室公开的目标。**比如，**OpenAI**侧重前沿理论的自动化研究，在 9 月宣布其 AI 已具备“自动化研究实习生”的能力，专门成立 RSI（递归式自我改进）团队，目标在 2028 年 3 月前实现完全自动化的 AI 研究员，让 AI 自主生成、审计高质量训练数据，接管自身研发全流程；**Anthropic**侧重工程的自动化探索，在6月发布《When AI Builds Itself》报告时便披露，其内部 80% 以上的可运行代码已由 Claude 独立编写，每名工程师的产出效率提升了 8 倍。而9月曝光的最新进展中，其内部最核心的研发平台上，有30,000 个 AI Agent 同时协作，日夜不停地在数字沙盒里进行代码跑测与算法实验。**Google** 内部也在加码 AI for AI 的投入，一方面，推出自进化编码智能体 AlphaEvolve，加速 Gemini 的迭代。另一方面，Google 迎来人事地震，哈萨比斯卸任 Google DeepMind CEO全面转战 AGI 长期战略、全球事务以及 Isomorphic Labs 的 AI 药物研发。此外，Google 灵魂人物 Jeff Dean 前段时间官宣离职创办 Discovery Loop，专攻自动化机器学习。短短几周内，估值就被推到了 500 亿美元，连老东家 Google 也下场投资。国内，AI 参与 AI 研发的实践也在密集出现，而且切入的环节各不相同：面壁用 AI 编写预训练框架，智谱让 AI 搭建国产芯片上的推理基础设施。有的团队从训练框架入手，有的从推理系统入手，也有的直接研究\"会进化的智能体\"本身。AI 能接手的研发环节，正在一段一段被打通。**Naive AI 的尝试把这些环节串了起来。架构探索、训练系统、推理优化，AI 都参与其中；同时，模型本身也被专门训练去承担研发工作。它既是这套研发方式的产物，也是这套方式的下一个执行者。**这一差异化打法，让 Naive AI 仅创办7 个月，估值飙升至 14.2 亿美元。无数资本涌入，巨头纷纷押注。所有人都意识到，全面重构智能迭代速度这件事，能在有限资源内不断突破性能边界，或许才是通往 AGI 的第二增长曲线。当下，AI for AI 早已不是概念。AI 从只能帮工程师写单个 PyTorch 函数，进化到可以独立阅读顶会论文、编写完整训练脚本、调度 GPU 集群、分析日志报错、完成一键微调。以 Devin、Aider、OpenHands  为代表的研发智能体已经成熟，机器学习工程（MLE）正式成为 RSI 的核心试验场。"
+      },
+      {
+        "paragraphIndex": 5,
+        "reportClaimIds": [
+          "summary-3"
+        ],
+        "sourceId": "S1",
+        "evidenceIds": [
+          "S1-E19"
+        ],
+        "quote": "******当 AI 成为研究员，************Naive‑N0.5‑Flash 是如何诞生的******现在AI大模型的构建不仅仅是研究工作，更是一套复杂的工业化研发体系。全球领先的人工智能公司依靠庞大的专家团队分工协作，支撑这套体系的运转，覆盖模型架构、基础设施、训练、推理、部署与评测等环节，每个前沿模型背后都是持续不断的实验、迭代与优化循环。**Naive AI 先做的是，研发环节的重新分工。**从成立的第一天起，Naive AI 就摒弃了传统以人类为中心的研发体系。传统的大模型研发，研究员要亲手写代码、调参数、跑实验、看曲线，全流程主导实验。这套工作下来，少则数周，多则数月，其中有不少是重复且枯燥的“工程脏活”。现在，这些活都交给了 AI 研究员。在 Naive AI 研发体系里，人类研究员把精力集中在三件事上：**提出目标，设定约束与评价标准，以及作出最终决策，**核心能力转向“科研品味”的高低。为了让 AI 可靠地承担执行层工作，Naive AI 建立一套以 AI 为中心的研发基础设施。简单说，就是给模型一个安全、隔离的运行环境，再配上 GPU 算力，让它能大规模稳定运行。这个系统每周能跑近千万个沙箱，最多能同时跑 10 万个。系统背后有一个统一平台，集中管理算力、环境、工具、权限和安全。**AI既是正在被实验、被升级的“产品”，同时又是写代码、改架构的“开发者”，由此诞生的 Naive‑N0.5‑Flash， AI 研发和编程能力突出。**这个小模型一头撞进了全球大模型考场，在专门针对 AI 研发能力的评测中，展现出了对标顶尖闭源模型的实力。 在考核前沿论文复现能力的 PaperBench 评测中，Naive-N0.5-Flash 超越了Claude Opus 4.7 、GPT-5.5 等主流模型。在考察机器学习实验能力的 MLE-bench-30 评测中，Naive-N0.5-Flash 超越了 Claude Sonnet 5、Gemini 3.6 Flash。这意味着它能像真正的科研人员一样，读懂晦涩的顶会论文并复现其实验。![](https://jnexpert-oss1.oss-cn-beijing.aliyuncs.com/upload/article/1790631861754_1155.png)图注：Naive-N0.5-Flash在考察AI研究能力的分类评测中，展现惊人的性能效率它还有不错的编程能力。在评估复杂编程能力的 SWE-bench Pro 上，Naive‑N0.5‑Flash 得分 73.6，超过 2.4T 参数的 Qwen 3.8 Max 。该模型仅以 15.5B 激活参数（不足自身总参数 6%），便超越了拥有 2.4T 参数的大模型，上演了一场以小胜大的效率奇迹。目前，模型权重和推理代码均以 MIT 许可证发布。同时提供 API 访问服务，输入Token每百万0.6元，输出Token每百万2.6元，缓存命中读取每百万Token 0.07元人民币，具备极高性价比。从一开始，Naive AI 专门强化了三种研究能力，分别是**读论文（复现前沿论文）****做实验（自主跑消融实验）****管理研究成果（系统化管理研究仓库与版本）**，这三件事正是人类研究员每天投入最多的事，也是让递归式自我改进（RSI）能闭环的三件事。让 AI 深度参与下一代大模型自己的研发，正是 Naive AI 的长期目标。"
+      },
+      {
+        "paragraphIndex": 6,
+        "reportClaimIds": [
+          "summary-2"
+        ],
+        "sourceId": "S1",
+        "evidenceIds": [
+          "S1-E23"
+        ],
+        "quote": "******深水区思辨：************AI 研究员迈向“强 RSI”的五大卡点******从 NaiveRT 的 151 轮迭代，到 AutoWM 的 400 小时探索，两个真实案例清晰地展现了当前 AI 研究员的能力边界。但重新审视整个行业的进展，我们仍处在**弱 RSI**的起点：AI 的角色更像刚入行的科研实习生，能在已知框架内完成参数调优与方案组合，远未达到独立主导完整科学研究的阶段。而距离真正能够自主阅读前沿文献、提出研究假设、调度算力资源、端到端完成模型迭代的**强 RSI**形态，即全自动 AI 研究员，OpenAI 给出的目标节点是 2028 年。这中间，还有许多卡点无法跨越。首先是**验证难**软件代码写完可以马上运行并获得及时反馈，但模型训练的反馈周期要漫长得多。151 轮实验看似密集，背后是算力的并行堆砌，而非 AI 本身的思考速度。越往底层架构走、越靠近预训练环节，AI 的迭代效率就越受限于物理算力与训练周期。它可以一口气生成上百个候选方案，但最终能验证多少，依然要等算力排队，要等训练跑完。如果涉及机器人、材料科学等物理世界的实验，反馈周期和成本更会随实验规模呈指数级上升。比验证难更深一层的困境，是**发现能力**当前所有 AI for AI 的迭代，本质上都是现有知识的排列组合与参数调优。AI 可以把已知方向的研究做得又快又极致，但无法独立开创出全新的研究范式。当年 Transformer 能取代 RNN，需要对领域的深层理解、对未来方向的直觉判断，甚至一定的审美与运气。这些就是人类研究员的 “科研品味”，也是当前 AI 无法替代的核心价值。再往底层剖析，则绕不开模型**因果能力的匮乏**纯文本语料训练出来的大模型，因果判断天然不稳定，逻辑推演极易受到表述形式的干扰。这也正是杨立昆近年不遗余力推崇世界模型的核心原因：只有在与物理世界的交互中习得的因果律才是扎实的。纯文本里学到的 “因果”，很多时候只是语言层面的相关性，而非真正的逻辑因果。在世界模型实验中，AI 敏锐地发现了 “部分评测指标无需参考视频” 的规律，并以此优化了输出策略，最终拿到了更高的分数。但这个规律，是底层逻辑的必然，还是特定数据集上的偶然？AI 能高效地发现关联，却很难独立判断这个关联是不是真正的因果。同时，**评估器能力不足**也是一个迫切的难题。科学研究最核心的部分在于科研品味，而这种创新性与长期价值很难被量化成明确的指标。如果训练系统一味使用可量化的跑分做奖励信号，AI 会倾向于为了刷高指标而进行投机优化，反而会牺牲真正的创新性。然而，这些都还不算真正的深水区。**元递归，也就是“迭代的方法本身”，才是从弱 RSI 走向强 RSI 的一道门槛。**比如研发工作流要不要调整、实验设计的逻辑要不要改？什么时候 AI 能自己推翻一套沿用已久的实验范式，自己提出一套更高效的研究逻辑，AI 才真正成为了 “会进化的研究员”。在 Naive AI 的官方主页上，悄然写着这样一句标语：**“100x Intelligence for the pioneers”（为先驱者提供 100 倍的智能）。**![](https://jnexpert-oss1.oss-cn-beijing.aliyuncs.com/upload/article/1790631863080_8004.png)图注：Naive AI 官网标语AI for AI 的终局，从来不是为了干掉人类研究员。当我们回望人类群星闪耀时，那些一闪而过的灵感，不再因来不及落地，而无声消亡。"
+      },
+      {
+        "paragraphIndex": 6,
+        "reportClaimIds": [
+          "summary-2"
+        ],
+        "sourceId": "S2",
+        "evidenceIds": [
+          "S2-E8"
+        ],
+        "quote": "若以上述严苛标准衡量，当前绝大多数AI系统都远未达标。为开发更优秀的AI，人类会负责设定目标、定义标准并筛选理想方案——现有的AI仍只是人类帮手，无法自建自我优化闭环。"
+      },
+      {
+        "paragraphIndex": 6,
+        "reportClaimIds": [
+          "summary-2"
+        ],
+        "sourceId": "S6",
+        "evidenceIds": [
+          "S6-E9"
+        ],
+        "quote": "1. A person invokes an LLM to summarize the literature, to chart a research plan towards new theorems, or to directly generate chunks of (or entire) proofs.\n2. A person uses AI-derived tools, such as AlphaEvolve, to generate better proof elements."
+      },
+      {
+        "paragraphIndex": 6,
+        "reportClaimIds": [
+          "summary-3"
+        ],
+        "sourceId": "S1",
+        "evidenceIds": [
+          "S1-E17"
+        ],
+        "quote": "过去两三年，行业最关注的是编程和数学：端到端完成复杂代码任务，推导悬而未决的数学难题。AI 由此具备了扎实的逻辑推演与代码工程落地能力。当这些能力成熟，一个更根本的问题浮出水面：能不能把它们用回 AI 自己身上？**2026年，“AI for AI”已经成为海外头部实验室公开的目标。**比如，**OpenAI**侧重前沿理论的自动化研究，在 9 月宣布其 AI 已具备“自动化研究实习生”的能力，专门成立 RSI（递归式自我改进）团队，目标在 2028 年 3 月前实现完全自动化的 AI 研究员，让 AI 自主生成、审计高质量训练数据，接管自身研发全流程；**Anthropic**侧重工程的自动化探索，在6月发布《When AI Builds Itself》报告时便披露，其内部 80% 以上的可运行代码已由 Claude 独立编写，每名工程师的产出效率提升了 8 倍。而9月曝光的最新进展中，其内部最核心的研发平台上，有30,000 个 AI Agent 同时协作，日夜不停地在数字沙盒里进行代码跑测与算法实验。**Google** 内部也在加码 AI for AI 的投入，一方面，推出自进化编码智能体 AlphaEvolve，加速 Gemini 的迭代。另一方面，Google 迎来人事地震，哈萨比斯卸任 Google DeepMind CEO全面转战 AGI 长期战略、全球事务以及 Isomorphic Labs 的 AI 药物研发。此外，Google 灵魂人物 Jeff Dean 前段时间官宣离职创办 Discovery Loop，专攻自动化机器学习。短短几周内，估值就被推到了 500 亿美元，连老东家 Google 也下场投资。国内，AI 参与 AI 研发的实践也在密集出现，而且切入的环节各不相同：面壁用 AI 编写预训练框架，智谱让 AI 搭建国产芯片上的推理基础设施。有的团队从训练框架入手，有的从推理系统入手，也有的直接研究\"会进化的智能体\"本身。AI 能接手的研发环节，正在一段一段被打通。**Naive AI 的尝试把这些环节串了起来。架构探索、训练系统、推理优化，AI 都参与其中；同时，模型本身也被专门训练去承担研发工作。它既是这套研发方式的产物，也是这套方式的下一个执行者。**这一差异化打法，让 Naive AI 仅创办7 个月，估值飙升至 14.2 亿美元。无数资本涌入，巨头纷纷押注。所有人都意识到，全面重构智能迭代速度这件事，能在有限资源内不断突破性能边界，或许才是通往 AGI 的第二增长曲线。当下，AI for AI 早已不是概念。AI 从只能帮工程师写单个 PyTorch 函数，进化到可以独立阅读顶会论文、编写完整训练脚本、调度 GPU 集群、分析日志报错、完成一键微调。以 Devin、Aider、OpenHands  为代表的研发智能体已经成熟，机器学习工程（MLE）正式成为 RSI 的核心试验场。"
+      },
+      {
+        "paragraphIndex": 6,
+        "reportClaimIds": [
+          "summary-3"
+        ],
+        "sourceId": "S1",
+        "evidenceIds": [
+          "S1-E19"
+        ],
+        "quote": "******当 AI 成为研究员，************Naive‑N0.5‑Flash 是如何诞生的******现在AI大模型的构建不仅仅是研究工作，更是一套复杂的工业化研发体系。全球领先的人工智能公司依靠庞大的专家团队分工协作，支撑这套体系的运转，覆盖模型架构、基础设施、训练、推理、部署与评测等环节，每个前沿模型背后都是持续不断的实验、迭代与优化循环。**Naive AI 先做的是，研发环节的重新分工。**从成立的第一天起，Naive AI 就摒弃了传统以人类为中心的研发体系。传统的大模型研发，研究员要亲手写代码、调参数、跑实验、看曲线，全流程主导实验。这套工作下来，少则数周，多则数月，其中有不少是重复且枯燥的“工程脏活”。现在，这些活都交给了 AI 研究员。在 Naive AI 研发体系里，人类研究员把精力集中在三件事上：**提出目标，设定约束与评价标准，以及作出最终决策，**核心能力转向“科研品味”的高低。为了让 AI 可靠地承担执行层工作，Naive AI 建立一套以 AI 为中心的研发基础设施。简单说，就是给模型一个安全、隔离的运行环境，再配上 GPU 算力，让它能大规模稳定运行。这个系统每周能跑近千万个沙箱，最多能同时跑 10 万个。系统背后有一个统一平台，集中管理算力、环境、工具、权限和安全。**AI既是正在被实验、被升级的“产品”，同时又是写代码、改架构的“开发者”，由此诞生的 Naive‑N0.5‑Flash， AI 研发和编程能力突出。**这个小模型一头撞进了全球大模型考场，在专门针对 AI 研发能力的评测中，展现出了对标顶尖闭源模型的实力。 在考核前沿论文复现能力的 PaperBench 评测中，Naive-N0.5-Flash 超越了Claude Opus 4.7 、GPT-5.5 等主流模型。在考察机器学习实验能力的 MLE-bench-30 评测中，Naive-N0.5-Flash 超越了 Claude Sonnet 5、Gemini 3.6 Flash。这意味着它能像真正的科研人员一样，读懂晦涩的顶会论文并复现其实验。![](https://jnexpert-oss1.oss-cn-beijing.aliyuncs.com/upload/article/1790631861754_1155.png)图注：Naive-N0.5-Flash在考察AI研究能力的分类评测中，展现惊人的性能效率它还有不错的编程能力。在评估复杂编程能力的 SWE-bench Pro 上，Naive‑N0.5‑Flash 得分 73.6，超过 2.4T 参数的 Qwen 3.8 Max 。该模型仅以 15.5B 激活参数（不足自身总参数 6%），便超越了拥有 2.4T 参数的大模型，上演了一场以小胜大的效率奇迹。目前，模型权重和推理代码均以 MIT 许可证发布。同时提供 API 访问服务，输入Token每百万0.6元，输出Token每百万2.6元，缓存命中读取每百万Token 0.07元人民币，具备极高性价比。从一开始，Naive AI 专门强化了三种研究能力，分别是**读论文（复现前沿论文）****做实验（自主跑消融实验）****管理研究成果（系统化管理研究仓库与版本）**，这三件事正是人类研究员每天投入最多的事，也是让递归式自我改进（RSI）能闭环的三件事。让 AI 深度参与下一代大模型自己的研发，正是 Naive AI 的长期目标。"
+      }
+    ],
+    "coverage": {
+      "requiredSources": 5,
+      "eligibleSourceCount": 8,
+      "citedSourceCount": 5,
+      "citedSourceTypes": [
+        "机构报告",
+        "研究论文"
+      ],
+      "requirementMet": true
+    }
+  },
+  "diagnostics": {
+    "durationMs": 59889,
+    "searchCalls": 2,
+    "extractorCalls": 1,
+    "modelCalls": 6,
+    "totalTokens": 80962,
+    "sourceTypes": 2,
+    "tavilyCredits": 4,
+    "socialDurationMs": 12877
+  }
+}

@@ -1,0 +1,79 @@
+import { chromium, devices } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
+const base=process.env.TEST_BASE_URL||'http://localhost:3001';
+const text='一个新的变化，值得认真看一眼。\n\n不同资料展示了不同的实验路径，也保留了各自的局限。\n\n当这种变化进入你的工作，你最想保留哪部分判断？';
+const answer='AI编程可能减少部分重复性编码岗位的招聘需求。\n\n但任务效率变化还不能直接证明整个市场的初级岗位已经减少。';
+const fixture={status:'partial',report:{title:'纯文字复制交互测试',summary:[{text:answer,references:[]}],cards:[],limitations:[],generatedAt:new Date().toISOString()},sources:[],warnings:[],coverage:{requiredSources:5,eligibleSourceCount:5,citedSourceCount:5,citedSourceTypes:['研究论文','机构报告'],requirementMet:true},socialRetryToken:'ui-mock-token',socialContent:{status:'ready',text,characterCount:[...text].length,weightedLength:160,targetLength:2000,warnings:[],claimReferences:[],coverage:{requiredSources:5,eligibleSourceCount:5,citedSourceCount:5,citedSourceTypes:['研究论文','机构报告'],requirementMet:true}},diagnostics:{durationMs:2000,searchCalls:1,extractorCalls:0,modelCalls:4,totalTokens:1000,sourceTypes:2,tavilyCredits:2}};
+await mkdir('.local',{recursive:true});
+const browser=await chromium.launch();const errors=[];
+try {
+  const context=await browser.newContext({...devices['iPhone 13']});
+  await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:base});
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+  await page.route('**/api/analyze',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(fixture)}));
+  await page.goto(base);await page.getByRole('textbox',{name:'研究问题'}).fill('纯文字和分段复制测试问题');
+  await page.getByRole('button',{name:'开始分析'}).click();await page.getByRole('heading',{name:'社交媒体文案',exact:true}).waitFor();
+  assert.equal(await page.locator('.statement-tag').count(),0,'answers must have no classification badge');
+  assert.doesNotMatch(await page.locator('.summary-box').innerText(),/分析推断|资料事实|示例说明/);
+  assert.equal((await page.locator('.summary-item p').innerText()).trim(),answer);
+  assert.equal(await page.locator('.summary-item p').evaluate(element=>getComputedStyle(element).whiteSpace),'pre-wrap');
+  await page.locator('.summary-box').screenshot({path:'.local/answer-without-tags.png'});
+  assert.equal(await page.getByTestId('social-text').innerText(),text);
+  await page.getByRole('button',{name:'一键复制',exact:true}).click();await page.getByRole('button',{name:'已复制',exact:true}).waitFor();
+  // Windows 剪贴板使用 CRLF；浏览器粘贴后应还原同样的段落与空行。
+  assert.equal((await page.evaluate(()=>navigator.clipboard.readText())).replace(/\r\n/g,'\n'),text,'clipboard paragraphs must match preview');
+  await page.evaluate(()=>{const target=document.createElement('textarea');target.id='paste-test';document.body.append(target);});
+  await page.locator('#paste-test').focus();await page.keyboard.press('Control+V');assert.equal(await page.locator('#paste-test').inputValue(),text,'pasted text must match preview');
+  await page.evaluate(()=>document.querySelector('#paste-test')?.remove());
+  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw new Error('denied');}}}));
+  await page.getByRole('button',{name:'已复制',exact:true}).click();
+  await page.getByRole('textbox',{name:'手动复制文字'}).waitFor();assert.equal(await page.getByRole('textbox',{name:'手动复制文字'}).inputValue(),text);
+  assert.equal(await page.getByRole('button',{name:'已复制',exact:true}).count(),0,'denied copy must not show success');
+  let retries=0;
+  await page.route('**/api/social-content',route=>{retries++;return route.fulfill({contentType:'application/json',body:JSON.stringify({socialContent:{...fixture.socialContent,status:'failed',text:'',warnings:['模拟文案失败，报告保留。']}})});});
+  await page.getByRole('button',{name:'重新生成文案'}).click();await page.getByText('模拟文案失败，报告保留。').waitFor();
+  assert.equal(await page.getByRole('button',{name:'一键复制',exact:true}).isDisabled(),true);assert.equal(retries,1);
+  await page.getByRole('heading',{name:fixture.report.title}).waitFor();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.setViewportSize({width:320,height:740});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.getByRole('textbox',{name:'研究问题'}).fill('一个完全不同的新研究问题');assert.equal(await page.getByRole('heading',{name:'社交媒体文案',exact:true}).count(),0,'old content must disappear on new input');
+  // A response arriving after cancelling or changing the question must not restore old content.
+  await page.getByRole('button',{name:'开始分析'}).click();await page.getByTestId('social-text').waitFor();
+  await page.unroute('**/api/social-content');
+  let releaseSocial, observedSocial;
+  const socialGate=new Promise(resolve=>{releaseSocial=resolve;});
+  const socialRequest=new Promise(resolve=>{observedSocial=resolve;});
+  await page.route('**/api/social-content',async route=>{observedSocial();await socialGate;await route.fulfill({contentType:'application/json',body:JSON.stringify({socialContent:{...fixture.socialContent,text:'上一份问题的迟到文案'}})}).catch(()=>{});});
+  await page.getByRole('button',{name:'重新生成文案'}).click();await socialRequest;
+  const abandonedSocial=page.waitForEvent('requestfailed',{predicate:request=>request.url().endsWith('/api/social-content')});
+  await page.getByRole('textbox',{name:'研究问题'}).fill('取消过程中输入的全新问题');releaseSocial();await abandonedSocial;
+  assert.equal(await page.getByTestId('social-text').count(),0,'late social response must not restore old content');
+  await page.unroute('**/api/analyze');
+  let releaseAnalysis, observedAnalysis;
+  const analysisGate=new Promise(resolve=>{releaseAnalysis=resolve;});
+  const analysisRequest=new Promise(resolve=>{observedAnalysis=resolve;});
+  await page.route('**/api/analyze',async route=>{observedAnalysis();await analysisGate;await route.fulfill({contentType:'application/json',body:JSON.stringify(fixture)}).catch(()=>{});});
+  await page.getByRole('button',{name:'开始分析'}).click();await analysisRequest;
+  const cancelledAnalysis=page.waitForEvent('requestfailed',{predicate:request=>request.url().endsWith('/api/analyze')});
+  await page.getByRole('button',{name:'取消',exact:true}).click();releaseAnalysis();await cancelledAnalysis;
+  await page.getByText('分析已取消。问题已保留，可以再次开始。').waitFor();
+  assert.equal(await page.getByRole('textbox',{name:'研究问题'}).inputValue(),'取消过程中输入的全新问题');
+  assert.equal(await page.getByTestId('social-text').count(),0,'cancelled analysis must not display old social content');
+  await context.close();
+  // An actual LAN HTTP origin is not a secure clipboard context; exercise its manual path.
+  if(process.env.TEST_HTTP_BASE_URL){
+    const lan=await browser.newContext({...devices['iPhone 13']});const lanPage=await lan.newPage();lanPage.on('pageerror',e=>errors.push(e.message));
+    await lanPage.route('**/api/analyze',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(fixture)}));
+    await lanPage.goto(process.env.TEST_HTTP_BASE_URL);
+    assert.equal(await lanPage.evaluate(()=>isSecureContext),false,'LAN HTTP must exercise the insecure context');
+    await lanPage.getByRole('textbox',{name:'研究问题'}).fill('局域网 HTTP 手动复制实际检查');await lanPage.getByRole('button',{name:'开始分析'}).click();
+    await lanPage.getByRole('button',{name:'一键复制',exact:true}).click();const manual=lanPage.getByRole('textbox',{name:'手动复制文字'});await manual.waitFor();
+    assert.equal(await manual.inputValue(),text);await lanPage.getByRole('button',{name:'全选文字',exact:true}).click();
+    assert.equal(await manual.evaluate(element=>element.selectionEnd-element.selectionStart),text.length);
+    assert.equal(await lanPage.getByRole('button',{name:'已复制',exact:true}).count(),0);
+    await lan.close();
+  }
+  assert.deepEqual(errors,[]);
+  console.log('Social UI passed: plain-text clipboard and paste, denied write/manual fallback, independent retry, 390/320px, stale responses after cancel/new input blocked'+(process.env.TEST_HTTP_BASE_URL?', actual LAN HTTP manual selection.':'.'));
+} finally {await browser.close();}

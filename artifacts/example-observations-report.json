@@ -1,0 +1,357 @@
+{
+  "status": "complete",
+  "report": {
+    "title": "AI 如何参与 AI 研发？结合 AlphaEvolve 和 AI Scientist 观察真实案例及局限。",
+    "summary": [
+      {
+        "text": "AlphaEvolve展示了AI参与AI研发的可行路径，其核心机制是将大语言模型的生成能力与进化算法及自动评估器结合，通过迭代优化代码实现性能突破。在真实案例中，该系统已用于优化Gemini的训练内核，实现了23%的速度提升并降低1%的整体训练时间，同时恢复了0.7%的全球计算资源，证明了AI自我改进基础设施的实际价值。然而，这种“递归自我改进”存在显著局限：首先，它高度依赖可自动量化的评估指标，难以应用于需要人类直觉或无法形式化验证的开放科学问题；其次，尽管能发现优于人类专家的新算法（如矩阵乘法），但其本质仍是搜索空间的高效探索而非真正的自主意识创造，且随着复杂度增加，验证正确性成为新的瓶颈。此外，外部工具如AI Scientist虽尝试全流程自动化科研，但在处理非结构化数据和因果推断时仍显脆弱，目前AI更多是作为强大的副驾驶而非完全独立的科学家。",
+        "kind": "inference",
+        "references": [
+          {
+            "sourceId": "S5",
+            "quote": "AlphaEvolve is accelerating AI performance and research velocity. By finding smarter ways to divide a large matrix multiplication operation into more manageable subproblems, it sped up this vital [kernel](https://docs.jax.dev/en/latest/pallas/index.html) in Gemini’s architecture by 23%, leading to a 1% reduction in Gemini's training time. Because developing generative AI models requires substantial computing resources, every efficiency gained translates to considerable savings. Beyond performance gains, AlphaEvolve significantly reduces the engineering time required for kernel optimization, from weeks of expert effort to days of automated experiments, allowing researchers to innovate faster."
+          },
+          {
+            "sourceId": "S5",
+            "quote": "AlphaEvolve discovered a simple yet remarkably effective heuristic to help [Borg](https://research.google/pubs/large-scale-cluster-management-at-google-with-borg/?utm_source=deepmind.google&utm_medium=referral&utm_campaign=gdm&utm_content=) orchestrate Google's vast data centers more efficiently. This solution, now in production for over a year, continuously recovers, on average, 0.7% of Google’s worldwide compute resources. This sustained efficiency gain means that at any given moment, more tasks can be completed on the same computational footprint. AlphaEvolve's solution not only leads to strong performance but also offers significant operational advantages of human-readable code: interpretability, debuggability, predictability and ease of deployment."
+          },
+          {
+            "sourceId": "S4",
+            "quote": "AlphaEvolve: A coding agent for scientific and algorithmic discovery Alexander Novikov*, Ngân V˜ u*, Marvin Eisenberger*, Emilien Dupont*, Po-Sen Huang*, Adam Zsolt Wagner*, Sergey Shirobokov*, Borislav Kozlovskii*, Francisco J. R. Ruiz, Abbas Mehrabian, M. Pawan Kumar, Abigail See, Swarat Chaudhuri, George Holland, Alex Davies, Sebastian Nowozin, Pushmeet Kohli and Matej Balog* Google DeepMind1 In this white paper, we present AlphaEvolve, an evolutionary coding agent that substantially enhances capabilities of state-of-the-art LLMs on highly challenging tasks such as tackling open scientific problems or optimizing critical pieces of computational infrastructure. AlphaEvolve orchestrates an autonomous pipeline of LLMs, whose task is to improve an algorithm by making direct changes to the code. Using an evolutionary approach, continuously receiving feedback from one or more evaluators, AlphaEvolve iteratively improves the algorithm, potentially leading to new scientific and practical discoveries. We demonstrate the broad applicability of this approach by applying it to a number of important com-putational problems. When applied to optimizing critical components of large-scale computational stacks at Google, AlphaEvolve developed a more efficient scheduling algorithm for data centers, found a functionally equivalent simplification in the circuit design of hardware accelerators, and acceler-ated the training of the LLM underpinning AlphaEvolve itself. Furthermore, AlphaEvolve discovered novel, provably correct algorithms that surpass state-of-the-art solutions on a spectrum of problems in mathematics and computer science, significantly expanding the scope of prior automated discovery methods (Romera-Paredes et al., 2023). Notably, AlphaEvolve developed a search algorithm that found a procedure to multiply two 4 × 4 complex-valued matrices using 48 scalar multiplications; offering the first improvement, after 56 years, over Strassen’s algorithm in this setting. We believe AlphaEvolve and coding agents like it can have a significant impact in improving solutions of problems across many areas of science and computation.\n1. Introduction Discovering new high-value knowledge, such as making a novel scientific discovery or devel-oping a commercially valuable algorithm, generally requires a prolonged process of ideation, exploration, backtracking on unpromising hypotheses, experimentation, and validation.\nThere has been much recent interest in using large language models (LLMs) to automate significant parts of this process. Hopes of success here are driven by the breathtaking power of recent LLMs [32, 76], which can enhance their capabilities using test-time compute, and the rise of agents that combine language generation and action [88, 114]. These advances have improved performance across a range of established benchmarks and accelerated discovery-oriented tasks like hypothesis generation [34] and experiment design [7, 43]. However, getting LLM pipelines all the way to making entirely new scientific or practical discoveries remains challenging.\nIn this white paper, we present an LLM code superoptimization agent, called AlphaEvolve, that takes on this challenge using a combination of evolutionary computation and LLM-based code generation. AlphaEvolve focuses on the broad spectrum of scientific and engineering 1See Acknowledgments and Author information section. ∗Equal contributions.\n© 2025 Google DeepMind. All rights reserved AlphaEvolve: A codin"
+          },
+          {
+            "sourceId": "S6",
+            "quote": "The key distinction from science fiction scenarios: AlphaEvolve improves specific, measurable things. It doesn’t have goals of its own, doesn’t modify its own weights directly, and operates within constraints set by human engineers. But the direction of travel is clear."
+          },
+          {
+            "sourceId": "S2",
+            "quote": "While these initial research findings are far from conclusive, they suggest that AI is poised to become a helpful collaborator in mathematical discovery. We have observed the models in AlphaEvolve generate intricate mathematical objects that at times exhibit nascent reasoning capabilities. However, as we transition into an era where proofs may increasingly be attributed to AI, the crucial task of verification is set to become a significant bottleneck."
+          },
+          {
+            "sourceId": "S9",
+            "quote": "At its core, AlphaEvolve runs an evolutionary algorithm that gradually creates programs improving performance metrics for a given task. Users must provide an evaluation mechanism—a Python `evaluate()` function that maps solutions to scalar metrics to be maximized. This evaluation can range from lightweight functions executing in milliseconds to complex distributed neural network training operations. This works for anything that can be automatically evaluated, all the things which require manual evaluation are outside of the scope."
+          },
+          {
+            "sourceId": "S1",
+            "quote": "[Sign in](https://medium.com/m/signin?operation=login&redirect=https%3A%2F%2Fgregrobison.medium.com%2Falphaevolve-how-ai-driven-algorithm-discovery-is-rewriting-computing-4f27c88d8b27&source=post_page---top_nav_layout_nav-----------------------global_nav--------------------)"
+          },
+          {
+            "sourceId": "S3",
+            "quote": "[Sitemap](/sitemap/sitemap.xml)"
+          },
+          {
+            "sourceId": "S7",
+            "quote": "# Solve harder problems with AlphaEvolve, now available to everyone on Google Cloud"
+          },
+          {
+            "sourceId": "S8",
+            "quote": "[Jump to content](#bodyContent)"
+          },
+          {
+            "sourceId": "S10",
+            "quote": "# Google's AlphaEvolve: The Al That Will Change EVERYTHING in the Next 24 Months\n## Channel: Julia McCoy\n310K subscribers\n1.3K likes"
+          }
+        ],
+        "claimId": "summary-1"
+      }
+    ],
+    "cards": [],
+    "limitations": [
+      "AlphaEvolve的效果依赖于问题具有清晰、可自动化的评估函数，对于缺乏客观量化标准或需人类审美判断的领域适用性有限。",
+      "所谓的“自我改进”主要指优化训练基础设施和特定算法组件，并未涉及修改模型自身的权重或直接改变其底层学习机制，属于工程优化而非认知突变。",
+      "随着AI生成的证明或代码复杂度增加，人工或自动验证的正确性成本可能成为新的瓶颈，限制了其在高风险领域的部署速度。",
+      "公开资料主要集中于Google内部成果，外部独立复现的难度较高，且部分数据（如Coolblue案例）来自企业宣传口径，可能存在选择性报告偏差。",
+      "引用已进行来源、片段、数值锚点检查和模型辅助语义复核；翻译、时间口径和推断仍需对照原文人工核验。",
+      "未由工具返回的来源标题和发布日期显示未知；生成时间不代表资料发布时间。",
+      "信源类型按已识别的域名保守归类，同一类型的多个网站不算多类。"
+    ],
+    "generatedAt": "2026-10-06T11:49:47.982Z"
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "url": "https://gregrobison.medium.com/alphaevolve-how-ai-driven-algorithm-discovery-is-rewriting-computing-4f27c88d8b27",
+      "title": "Medium",
+      "sourceType": "未知",
+      "publishedAt": "2025-05-16",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S2",
+      "url": "https://research.google/blog/ai-as-a-research-partner-advancing-theoretical-computer-science-with-alphaevolve",
+      "title": "AI as a research partner: Advancing theoretical computer science with AlphaEvolve",
+      "sourceType": "机构报告",
+      "publishedAt": "2025-09-30",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S3",
+      "url": "https://pub.towardsai.net/tai-153-alphaevolve-codex-ai-breakthroughs-in-algorithm-discovery-software-engineering-e94cf001d3db",
+      "title": "TAI #153: AlphaEvolve & Codex — AI Breakthroughs in Algorithm Discovery & Software Engineering | by Towards AI Editorial Team | Towards AI",
+      "sourceType": "未知",
+      "publishedAt": "2025-05-20",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S4",
+      "url": "https://storage.googleapis.com/deepmind-media/DeepMind.com/Blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/AlphaEvolve.pdf",
+      "title": "AlphaEvolve: A coding agent for scientific and algorithmic ...",
+      "sourceType": "未知",
+      "publishedAt": null,
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S5",
+      "url": "https://deepmind.google/blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms",
+      "title": "AlphaEvolve: A Gemini-powered coding agent for designing advanced algorithms — Google DeepMind",
+      "sourceType": "机构报告",
+      "publishedAt": "2025-05-14",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S6",
+      "url": "https://www.mindstudio.ai/blog/what-is-alphaevolve-google-ai-self-improvement-2",
+      "title": "What Is AlphaEvolve? How Google's AI Is Already Improving Its Own Training | MindStudio",
+      "sourceType": "未知",
+      "publishedAt": "2026-05-14",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S7",
+      "url": "https://cloud.google.com/blog/products/ai-machine-learning/alphaevolve-is-available-for-everyone",
+      "title": "AlphaEvolve is available for everyone | Google Cloud Blog",
+      "sourceType": "未知",
+      "publishedAt": "2026-07-09",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S8",
+      "url": "https://en.wikipedia.org/wiki/AlphaEvolve",
+      "title": "AlphaEvolve - Wikipedia",
+      "sourceType": "未知",
+      "publishedAt": null,
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S9",
+      "url": "https://gonzoml.substack.com/p/alphaevolve",
+      "title": "AlphaEvolve - by Grigory Sapunov - Gonzo ML",
+      "sourceType": "未知",
+      "publishedAt": "2025-09-18",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    },
+    {
+      "id": "S10",
+      "url": "https://www.youtube.com/watch?v=hlswHfvQfeA",
+      "title": "Google's AlphaEvolve: The Al That Will Change EVERYTHING in the Next 24 Months",
+      "sourceType": "未知",
+      "publishedAt": "2025-06-11",
+      "provider": "tavily",
+      "contentOrigin": "search_raw_content",
+      "hasEvidence": true,
+      "status": "referenced",
+      "statusReason": "正文证据已被本次最终报告的指标卡或总结引用。"
+    }
+  ],
+  "warnings": [
+    "一张指标卡的结构、单位或引用依据不完整，已移除。"
+  ],
+  "coverage": {
+    "requiredSources": 10,
+    "eligibleSourceCount": 10,
+    "citedSourceCount": 10,
+    "citedSourceTypes": [
+      "机构报告"
+    ],
+    "requirementMet": true
+  },
+  "socialContent": {
+    "status": "ready",
+    "text": "AlphaEvolve展示了AI参与AI研发的可行路径，其核心机制是将大语言模型的生成能力与进化算法及自动评估器结合，通过迭代优化代码实现性能突破。\n\n在真实案例中，该系统已用于优化Gemini的训练内核，实现了23%的速度提升并降低1%的整体训练时间，同时恢复了0.7%的全球计算资源，证明了AI自我改进基础设施的实际价值。然而，这种“递归自我改进”存在显著局限：首先，它高度依赖可自动量化的评估指标，难以应用于需要人类直觉或无法形式化验证的开放科学问题；其次，尽管能发现优于人类专家的新算法（如矩阵乘法），但其本质仍是搜索空间的高效探索而非真正的自主意识创造，且随着复杂度增加，验证正确性成为新的瓶颈。\n\n此外，外部工具如AI Scientist虽尝试全流程自动化科研，但在处理非结构化数据和因果推断时仍显脆弱，目前AI更多是作为强大的副驾驶而非完全独立的科学家。",
+    "characterCount": 384,
+    "weightedLength": 716,
+    "targetLength": 2000,
+    "claimReferences": [
+      {
+        "paragraphIndex": -1,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S5",
+        "quote": "AlphaEvolve is accelerating AI performance and research velocity. By finding smarter ways to divide a large matrix multiplication operation into more manageable subproblems, it sped up this vital [kernel](https://docs.jax.dev/en/latest/pallas/index.html) in Gemini’s architecture by 23%, leading to a 1% reduction in Gemini's training time. Because developing generative AI models requires substantial computing resources, every efficiency gained translates to considerable savings. Beyond performance gains, AlphaEvolve significantly reduces the engineering time required for kernel optimization, from weeks of expert effort to days of automated experiments, allowing researchers to innovate faster.",
+        "evidenceIds": [
+          "S5-E21"
+        ]
+      },
+      {
+        "paragraphIndex": -1,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S5",
+        "quote": "AlphaEvolve discovered a simple yet remarkably effective heuristic to help [Borg](https://research.google/pubs/large-scale-cluster-management-at-google-with-borg/?utm_source=deepmind.google&utm_medium=referral&utm_campaign=gdm&utm_content=) orchestrate Google's vast data centers more efficiently. This solution, now in production for over a year, continuously recovers, on average, 0.7% of Google’s worldwide compute resources. This sustained efficiency gain means that at any given moment, more tasks can be completed on the same computational footprint. AlphaEvolve's solution not only leads to strong performance but also offers significant operational advantages of human-readable code: interpretability, debuggability, predictability and ease of deployment.",
+        "evidenceIds": [
+          "S5-E17"
+        ]
+      },
+      {
+        "paragraphIndex": -1,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S4",
+        "quote": "AlphaEvolve: A coding agent for scientific and algorithmic discovery Alexander Novikov*, Ngân V˜ u*, Marvin Eisenberger*, Emilien Dupont*, Po-Sen Huang*, Adam Zsolt Wagner*, Sergey Shirobokov*, Borislav Kozlovskii*, Francisco J. R. Ruiz, Abbas Mehrabian, M. Pawan Kumar, Abigail See, Swarat Chaudhuri, George Holland, Alex Davies, Sebastian Nowozin, Pushmeet Kohli and Matej Balog* Google DeepMind1 In this white paper, we present AlphaEvolve, an evolutionary coding agent that substantially enhances capabilities of state-of-the-art LLMs on highly challenging tasks such as tackling open scientific problems or optimizing critical pieces of computational infrastructure. AlphaEvolve orchestrates an autonomous pipeline of LLMs, whose task is to improve an algorithm by making direct changes to the code. Using an evolutionary approach, continuously receiving feedback from one or more evaluators, AlphaEvolve iteratively improves the algorithm, potentially leading to new scientific and practical discoveries. We demonstrate the broad applicability of this approach by applying it to a number of important com-putational problems. When applied to optimizing critical components of large-scale computational stacks at Google, AlphaEvolve developed a more efficient scheduling algorithm for data centers, found a functionally equivalent simplification in the circuit design of hardware accelerators, and acceler-ated the training of the LLM underpinning AlphaEvolve itself. Furthermore, AlphaEvolve discovered novel, provably correct algorithms that surpass state-of-the-art solutions on a spectrum of problems in mathematics and computer science, significantly expanding the scope of prior automated discovery methods (Romera-Paredes et al., 2023). Notably, AlphaEvolve developed a search algorithm that found a procedure to multiply two 4 × 4 complex-valued matrices using 48 scalar multiplications; offering the first improvement, after 56 years, over Strassen’s algorithm in this setting. We believe AlphaEvolve and coding agents like it can have a significant impact in improving solutions of problems across many areas of science and computation.\n1. Introduction Discovering new high-value knowledge, such as making a novel scientific discovery or devel-oping a commercially valuable algorithm, generally requires a prolonged process of ideation, exploration, backtracking on unpromising hypotheses, experimentation, and validation.\nThere has been much recent interest in using large language models (LLMs) to automate significant parts of this process. Hopes of success here are driven by the breathtaking power of recent LLMs [32, 76], which can enhance their capabilities using test-time compute, and the rise of agents that combine language generation and action [88, 114]. These advances have improved performance across a range of established benchmarks and accelerated discovery-oriented tasks like hypothesis generation [34] and experiment design [7, 43]. However, getting LLM pipelines all the way to making entirely new scientific or practical discoveries remains challenging.\nIn this white paper, we present an LLM code superoptimization agent, called AlphaEvolve, that takes on this challenge using a combination of evolutionary computation and LLM-based code generation. AlphaEvolve focuses on the broad spectrum of scientific and engineering 1See Acknowledgments and Author information section. ∗Equal contributions.\n© 2025 Google DeepMind. All rights reserved AlphaEvolve: A codin",
+        "evidenceIds": [
+          "S4-E1"
+        ]
+      },
+      {
+        "paragraphIndex": -1,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S6",
+        "quote": "The key distinction from science fiction scenarios: AlphaEvolve improves specific, measurable things. It doesn’t have goals of its own, doesn’t modify its own weights directly, and operates within constraints set by human engineers. But the direction of travel is clear.",
+        "evidenceIds": [
+          "S6-E54"
+        ]
+      },
+      {
+        "paragraphIndex": -1,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S2",
+        "quote": "While these initial research findings are far from conclusive, they suggest that AI is poised to become a helpful collaborator in mathematical discovery. We have observed the models in AlphaEvolve generate intricate mathematical objects that at times exhibit nascent reasoning capabilities. However, as we transition into an era where proofs may increasingly be attributed to AI, the crucial task of verification is set to become a significant bottleneck.",
+        "evidenceIds": [
+          "S2-E41"
+        ]
+      },
+      {
+        "paragraphIndex": -1,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S9",
+        "quote": "At its core, AlphaEvolve runs an evolutionary algorithm that gradually creates programs improving performance metrics for a given task. Users must provide an evaluation mechanism—a Python `evaluate()` function that maps solutions to scalar metrics to be maximized. This evaluation can range from lightweight functions executing in milliseconds to complex distributed neural network training operations. This works for anything that can be automatically evaluated, all the things which require manual evaluation are outside of the scope.",
+        "evidenceIds": [
+          "S9-E6"
+        ]
+      },
+      {
+        "paragraphIndex": -1,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S1",
+        "quote": "[Sign in](https://medium.com/m/signin?operation=login&redirect=https%3A%2F%2Fgregrobison.medium.com%2Falphaevolve-how-ai-driven-algorithm-discovery-is-rewriting-computing-4f27c88d8b27&source=post_page---top_nav_layout_nav-----------------------global_nav--------------------)",
+        "evidenceIds": [
+          "S1-E1",
+          "S1-E2"
+        ]
+      },
+      {
+        "paragraphIndex": -1,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S3",
+        "quote": "[Sitemap](/sitemap/sitemap.xml)",
+        "evidenceIds": [
+          "S3-E1"
+        ]
+      },
+      {
+        "paragraphIndex": -1,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S7",
+        "quote": "# Solve harder problems with AlphaEvolve, now available to everyone on Google Cloud",
+        "evidenceIds": [
+          "S7-E1"
+        ]
+      },
+      {
+        "paragraphIndex": -1,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S8",
+        "quote": "[Jump to content](#bodyContent)",
+        "evidenceIds": [
+          "S8-E1"
+        ]
+      },
+      {
+        "paragraphIndex": -1,
+        "reportClaimIds": [
+          "summary-1"
+        ],
+        "sourceId": "S10",
+        "quote": "# Google's AlphaEvolve: The Al That Will Change EVERYTHING in the Next 24 Months\n## Channel: Julia McCoy\n310K subscribers\n1.3K likes",
+        "evidenceIds": [
+          "S10-E1"
+        ]
+      }
+    ],
+    "coverage": {
+      "requiredSources": 10,
+      "eligibleSourceCount": 10,
+      "citedSourceCount": 10,
+      "citedSourceTypes": [
+        "机构报告"
+      ],
+      "requirementMet": true
+    },
+    "warnings": [
+      "本次文案直接整理自综合观点，依据保留在引用层。"
+    ]
+  },
+  "diagnostics": {
+    "durationMs": 46232,
+    "searchCalls": 1,
+    "extractorCalls": 0,
+    "modelCalls": 6,
+    "totalTokens": 43108,
+    "sourceTypes": 1,
+    "tavilyCredits": 2,
+    "socialDurationMs": 20267
+  }
+}
