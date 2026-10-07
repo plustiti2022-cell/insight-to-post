@@ -3,12 +3,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ImagePlus, LoaderCircle, RefreshCw, Download } from "lucide-react";
 import type { SocialImage as Image } from "@/core/contracts";
 
-export function SocialImage({ text }: { text: string }) {
+export function SocialImage({ text, disabled = false }: { text: string; disabled?: boolean }) {
   const [image, setImage] = useState<Image | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const controller = useRef<AbortController | null>(null);
-  const generate = useCallback(async () => {
+  const initialText = useRef(text);
+  const generate = useCallback(async (text: string) => {
     if (controller.current) return;
     const active = new AbortController();
     controller.current = active;
@@ -26,10 +27,10 @@ export function SocialImage({ text }: { text: string }) {
     } finally {
       if (controller.current === active) { controller.current = null; setLoading(false); }
     }
-  }, [text]);
+  }, []);
   useEffect(() => {
     // Defer until after effect setup so Strict Mode's discarded mount sends no request.
-    const timer = setTimeout(() => { void generate(); }, 0);
+    const timer = setTimeout(() => { void generate(initialText.current); }, 0);
     return () => {
       clearTimeout(timer);
       controller.current?.abort();
@@ -39,8 +40,8 @@ export function SocialImage({ text }: { text: string }) {
   const extension = image?.dataUrl.startsWith("data:image/jpeg") ? "jpg" : image?.dataUrl.startsWith("data:image/webp") ? "webp" : "png";
   return <div className="social-image-panel" aria-busy={loading}>
     <h4>社交配图</h4>
-    <p className="social-description">文案完成后自动生成 1 张 Corporate Memphis / Alegria 插画</p>
-    <button className="social-retry" disabled={loading} onClick={generate}>
+    <p className="social-description">首次文案完成后自动配图；重写文案保留图片，可单独重新生成配图。</p>
+    <button className="social-retry" disabled={loading || disabled} onClick={() => { void generate(text); }}>
       {loading ? <LoaderCircle size={16} className="spin"/> : image ? <RefreshCw size={16}/> : <ImagePlus size={16}/>}
       {loading ? "正在生成配图…" : image ? "重新生成配图" : "生成配图"}
     </button>
@@ -51,7 +52,7 @@ export function SocialImage({ text }: { text: string }) {
     {error && <p className="social-feedback" role="alert">{error}</p>}
     {image && <>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img className="social-image" src={image.dataUrl} alt="根据当前社交文案生成的 Corporate Memphis 和 Alegria 风格插画"/>
+      <img className="social-image" src={image.dataUrl} alt="根据社交文案生成的 Corporate Memphis 和 Alegria 风格插画"/>
       <a className="social-retry" href={image.dataUrl} download={`social-image.${extension}`}><Download size={16}/> 下载配图</a>
       <details className="image-prompt"><summary>查看配图提示词</summary><p>{image.prompt}</p></details>
     </>}

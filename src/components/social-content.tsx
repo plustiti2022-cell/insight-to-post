@@ -10,6 +10,7 @@ export function SocialContent({ analysis, isDemo, onSource }: { analysis: Analys
   const field = useRef<HTMLTextAreaElement>(null); const controller = useRef<AbortController | null>(null); const copyVersion = useRef(0);
   useEffect(() => () => { controller.current?.abort(); copyVersion.current++; }, []);
   const ready = content?.status === 'ready' && content.coverage.requirementMet && !isDemo;
+  const [imageStarted, setImageStarted] = useState(Boolean(ready));
   async function copy() {
     if (!ready || !content || loading) return;
     const version = ++copyVersion.current;
@@ -29,7 +30,10 @@ export function SocialContent({ analysis, isDemo, onSource }: { analysis: Analys
       const response = await fetch('/api/social-content', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: analysis.socialRetryToken }), signal: AbortSignal.any([active.signal, AbortSignal.timeout(600000)]) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error?.message || '文案重试失败。');
-      if (!active.signal.aborted) setContent(data.socialContent);
+      if (!active.signal.aborted) {
+        setContent(data.socialContent);
+        if (data.socialContent.status === 'ready' && data.socialContent.coverage.requirementMet) setImageStarted(true);
+      }
     } catch (error) {
       if (!active.signal.aborted) setCopyStatus(error instanceof Error ? error.message : '文案重试失败。');
     } finally { if (!active.signal.aborted) setLoading(false); controller.current = null; }
@@ -44,7 +48,7 @@ export function SocialContent({ analysis, isDemo, onSource }: { analysis: Analys
       <details className="social-evidence"><summary>查看文案依据</summary>{[...new Set(content.claimReferences.map(ref => ref.paragraphIndex))].map(index => <div key={index}><span>{index<0 ? "综合观点依据" : `第 ${index+1} 段`}</span><Citation references={content.claimReferences.filter(ref => ref.paragraphIndex === index).map(ref => ({ sourceId: ref.sourceId, quote: ref.quote }))} onSource={onSource}/></div>)}</details>
     </> : <div className="social-state">{isDemo ? '界面示例为虚构数据，不生成待发布文案。' : (content?.warnings ?? ['本次未生成可用文案。']).join(' ')}</div>}
     <div className="social-actions"><button className="submit-button" disabled={!ready || loading} onClick={copy}>{copyStatus === '已复制' ? <Check size={16}/> : <Copy size={16}/>} {copyStatus === '已复制' ? '已复制' : '一键复制'}</button>{analysis.socialRetryToken && !isDemo && <button className="social-retry" disabled={loading} onClick={retry}><RefreshCw size={15}/> 重新生成文案</button>}</div>
-    {ready && !loading && content && <SocialImage key={content.text} text={content.text}/>}
+    {imageStarted && content && <SocialImage text={content.text} disabled={!ready || loading}/>}
     {copyStatus && <p className="social-feedback" role="status" aria-live="polite">{copyStatus}</p>}
     {manual && ready && content && <div className="manual-copy"><label htmlFor="manual-copy">手动复制文字</label><textarea id="manual-copy" ref={field} readOnly value={content.text}/><button className="social-retry" onClick={() => {field.current?.focus();field.current?.select();}}>全选文字</button></div>}
     {ready && <p className="social-footnote">{content && content.targetLength > 280 ? '长文需要 X 账号支持长帖。' : ''}发布前请核对原文；生成内容仍可能出错。</p>}
