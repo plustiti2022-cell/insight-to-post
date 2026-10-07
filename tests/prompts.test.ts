@@ -6,6 +6,9 @@ import {
   reportPrompt,
   socialContentPrompt, type ReportPromptSource,
 } from '../src/server/prompts';
+import { draftSchema } from '../src/core/contracts';
+import { hydrateReferences } from '../src/core/evidence';
+import { answerStructureIssues } from '../src/core/report';
 
 test('production model calls use centralized builders and prompts have no runtime imports', () => {
   const promptSource = readFileSync(new URL('../src/server/prompts.ts', import.meta.url), 'utf8');
@@ -103,8 +106,8 @@ test('report prompt sends only the question, body passages and reference IDs eve
 
 test('answer instructions prioritize the question and omit classification and forced source coverage', () => {
   const prompt = reportPrompt({ idea: 'AI编程会不会减少当前初级岗位的数量', sources: [] });
-  assert.match(prompt, /第一句就回应用户最关心的问题/);
-  assert.match(prompt, /cards是可选的补充，不能替代summary/);
+  assert.match(prompt, /直接、自然地回答用户的问题/);
+  assert.match(prompt, /cards默认\[\]/);
   assert.doesNotMatch(prompt, /"kind"\s*:|kind=inference|全部来源编号|所有成功提取的文章都须实际引用/);
   const recovery = reportPrompt({ idea: '用户原始问题', sources: [], answerOnly: true, answerFeedback: ['没有回答岗位数量的变化'] });
   assert.match(recovery, /这次只完成summary，cards=\[\]/);
@@ -116,9 +119,22 @@ test('answer instructions prioritize the question and omit classification and fo
 
 test('report prompt separates a bounded short summary from evidence in the following points', () => {
   const prompt = reportPrompt({ idea: 'AI会减少初级岗位吗？', sources: [] });
-  assert.match(prompt, /只用1–2句话给出结论和最关键的限定/);
+  assert.match(prompt, /用1–2句话先回答问题，再给出关键限定/);
   assert.match(prompt, /通常40–90字，最多120字符/);
-  assert.match(prompt, /不能写成详细内容块/);
-  assert.match(prompt, /行业差异、调查数字、时间范围、机制解释和反例分别归入对应要点/);
+  assert.match(prompt, /具体案例和详细数据放入后续要点/);
+  assert.match(prompt, /展开后用presentation="conclusion"简短综合要点/);
   assert.match(reportPrompt({ idea: '问题', sources: [], formatCorrection: '开篇总结过长' }), /不截断正文/);
+
+  // 输出示例必须能通过实际报告结构和引用映射，避免精简时改变引用协议。
+  const example = JSON.parse(prompt.split('\n').find(line => line.startsWith('{"title":'))!);
+  const evidence = ['S1', 'S2'].map(sourceId => ({
+    sourceId, id: `${sourceId}-E1`, text: `Original passage from ${sourceId} supports the answer.`,
+  }));
+  for (const item of example.summary) {
+    assert.ok(item.references.length > 0);
+    for (const reference of item.references) assert.deepEqual(Object.keys(reference).sort(), ['evidenceId', 'sourceId']);
+  }
+  const draft = draftSchema.parse(hydrateReferences(example, evidence));
+  assert.deepEqual(answerStructureIssues(draft.summary), []);
+  assert.deepEqual(draft.summary[2].references, evidence.map(({ sourceId, text }) => ({ sourceId, quote: text })));
 });

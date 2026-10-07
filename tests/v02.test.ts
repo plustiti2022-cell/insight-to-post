@@ -152,7 +152,7 @@ test('locally valid report retains all observations and skips model review',asyn
     assert.ok(!body.input.startsWith('你是独立'));
     if(body.input.startsWith('你是检索规划'))return Response.json({output_text:JSON.stringify({query:'research question evidence'})});
     if(body.input.startsWith('你是检索评估'))return Response.json({output_text:JSON.stringify({followUpQuery:null})});
-    if(body.input.startsWith('你是中文')){socialCalls++;return Response.json({status:'completed',output_text:JSON.stringify({paragraphs:[{text:'研究中的变化值得关注。',claimIds:[]},{text:'实验评估各有边界。',claimIds:['summary-1']},{text:'这些变化会怎样影响你的工作？',claimIds:[]}]})});}
+    if(body.input.startsWith('你是中文社交媒体作者')){socialCalls++;return Response.json({status:'completed',output_text:JSON.stringify({paragraphs:[{text:'研究中的变化值得关注。',claimIds:[]},{text:'实验评估各有边界。',claimIds:['summary-1']},{text:'这些变化会怎样影响你的工作？',claimIds:[]}]})});}
     reports++;return Response.json({status:'completed',output_text:JSON.stringify(rawReport)});
   };
   try {const r=await analyze('用于测试的研究问题');assert.equal(r.status,'complete');assert.ok(r.report.summary[0].text.includes(facts[2]));assert.equal(r.coverage?.citedSourceCount,5);assert.equal(r.socialContent?.status,'ready');assert.equal(searches,1);assert.equal(reports,1);assert.equal(socialCalls,1);assert.equal(r.diagnostics.modelCalls,4);assert.ok(!r.report.limitations.some(text=>text.includes('模型辅助语义复核')));}finally{globalThis.fetch=original;undo();}
