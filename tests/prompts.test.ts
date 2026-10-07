@@ -113,3 +113,12 @@ test('answer instructions prioritize the question and omit classification and fo
   assert.match(recovery, /修正本地校验指出的问题/);
   assert.doesNotMatch(recovery, /审核|复核/);
 });
+
+test('report prompt separates a bounded short summary from evidence in the following points', () => {
+  const prompt = reportPrompt({ idea: 'AI会减少初级岗位吗？', sources: [] });
+  assert.match(prompt, /只用1–2句话给出结论和最关键的限定/);
+  assert.match(prompt, /通常40–90字，最多120字符/);
+  assert.match(prompt, /不能写成详细内容块/);
+  assert.match(prompt, /行业差异、调查数字、时间范围、机制解释和反例分别归入对应要点/);
+  assert.match(reportPrompt({ idea: '问题', sources: [], formatCorrection: '开篇总结过长' }), /不截断正文/);
+});

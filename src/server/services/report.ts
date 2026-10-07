@@ -9,6 +9,7 @@ import { callQwen, outputText } from "../providers/qwen";
 import { AnalysisError, parseModelJson } from "../runtime";
 import { reportPrompt } from "../prompts";
 import { evidenceRegistry, hydrateReferences } from "../../core/evidence";
+import { answerStructureIssues } from "../../core/report";
 
 export async function generateReport(
   idea: string,
@@ -74,6 +75,8 @@ export async function generateReport(
       });
       if (!summary.length)
         throw new Error("summary没有有效回答，请提供非空正文和输入中可定位的引用编号。");
+      const structureIssues = answerStructureIssues(summary);
+      if (structureIssues.length) throw new Error(structureIssues.join("；"));
       return {
         draft: draftSchema.parse({ ...input, summary, cards, answerBlocks: undefined }),
         warnings,

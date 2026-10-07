@@ -3,7 +3,7 @@ import {
   countCoverage,
   eligibleForGeneration,
 } from "../../core/sources";
-import { completeReport } from "../../core/report";
+import { completeReport, hasOpeningSummary } from "../../core/report";
 import { emptyDraft, type Node, type NodeId } from "./state";
 
 // 同一流程中的短节点集中管理；每个节点返回更新，只有执行器合并状态。
@@ -135,7 +135,7 @@ export const nodes: Record<NodeId, Node> = {
     };
   }),
   async recoverAnswer(state, { idea, signal, observe, deps }) {
-    // 只在校验删空正文后补写一次，不重新检索，不因调用失败无限重试。
+    // 校验移除首答时补写一次，即使仍有有效要点；不重新检索、不循环重试。
     const sources = eligibleForGeneration(state.research);
     let modelCalls = state.modelCalls;
     let totalTokens = state.totalTokens;
@@ -154,7 +154,7 @@ export const nodes: Record<NodeId, Node> = {
       signal?.throwIfAborted();
       const validated = deps.validateReport({ ...generated.draft, cards: [] }, sources);
       warnings.push(...validated.warnings);
-      if (!validated.report.summary.length)
+      if (!hasOpeningSummary(validated.report))
         return { modelCalls, totalTokens, warnings };
       return {
         draft: { ...state.draft, summary: validated.report.summary },

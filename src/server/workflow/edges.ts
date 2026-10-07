@@ -1,4 +1,5 @@
 import { eligibleForGeneration } from "../../core/sources";
+import { hasOpeningSummary } from "../../core/report";
 import type { NodeId, WorkflowState } from "./state";
 
 export const START: NodeId = "search";
@@ -19,7 +20,7 @@ export const edges: Record<NodeId, Edge> = {
       : "completeReport",
   generate: (state) => (state.reportFailed ? "completeReport" : "validate"),
   validate: (state) =>
-    !state.reportFailed && !state.draft.summary.length
+    !state.reportFailed && !hasOpeningSummary(state.draft)
       ? "recoverAnswer"
       : "completeReport",
   recoverAnswer: () => "completeReport",

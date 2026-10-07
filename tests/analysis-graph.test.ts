@@ -28,6 +28,7 @@ const draft: Draft = {
   title: "test",
   summary: [
     {
+      presentation: "lead",
       text: "研究结果有适用边界。",
       references: sources.map((source) => ({
         sourceId: source.id,
@@ -274,7 +275,10 @@ test("a rejected answer is rewritten once with the original question, evidence a
       assert.deepEqual(articles, sources);
       assert.equal(options?.answerOnly, true);
       assert.ok(options?.answerFeedback?.includes('回答包含未支持的数字。'));
-      result.draft.summary[0].text = answer;
+      result.draft.summary = answer.split("\n\n").map((text, index) => ({
+        presentation: index === 0 ? "lead" : "paragraph",
+        text, references: result.draft.summary[0].references,
+      }));
     }
     return result;
   };
@@ -317,4 +321,45 @@ test("cancellation during answer recovery stops before social generation", async
   };
   await assert.rejects(runAnalysisGraph(input, deps), (error: unknown) => error instanceof AnalysisError && error.code === 'CANCELLED');
   assert.ok(!calls.includes('social'));
+});
+
+test("a removed opening is recovered once even when valid detailed points survive", async () => {
+  const { deps } = fixture();
+  deps.validateReport = analysisDependencies.validateReport;
+  let generated = 0;
+  deps.generateReport = async (_idea, _sources, _signal, _observe, options) => {
+    generated++;
+    const refs = [{ sourceId: "S1", quote: sources[0].extractedContent }];
+    if (generated === 2) assert.equal(options?.answerOnly, true);
+    return { draft: { title: "研究", cards: [], limitations: [], summary: [
+      { presentation: "lead", text: generated === 1 ? "初级岗位减少99%。" : "部分任务可能变化，不能将任务效率直接等同于整体就业。", references: refs },
+      { presentation: "bullet", label: "适用边界", text: "研究结果有适用边界。", references: refs },
+    ] }, modelCalls: 1, totalTokens: 10, warnings: [] };
+  };
+  const result = await runAnalysisGraph(input, deps);
+  assert.equal(generated, 2);
+  assert.equal(result.report.answerBlocks?.[0].presentation, "lead");
+  assert.match(result.report.answerBlocks?.[0].text ?? "", /部分任务可能变化/);
+  assert.equal(result.report.answerBlocks?.[1].presentation, "bullet");
+  assert.doesNotMatch(result.report.summary[0].text, /99/);
+});
+
+test("failed opening recovery preserves valid details and cannot bold the first surviving bullet", async () => {
+  const { deps } = fixture();
+  deps.validateReport = analysisDependencies.validateReport;
+  let generated = 0;
+  deps.generateReport = async () => {
+    if (++generated === 2) throw new Error("opening-recovery-failed");
+    const refs = [{ sourceId: "S1", quote: sources[0].extractedContent }];
+    return { draft: { title: "研究", cards: [], limitations: [], summary: [
+      { presentation: "lead", text: "初级岗位减少99%。", references: refs },
+      { presentation: "bullet", label: "适用边界", text: "研究结果有适用边界。", references: refs },
+    ] }, modelCalls: 1, totalTokens: 10, warnings: [] };
+  };
+  const result = await runAnalysisGraph(input, deps);
+  assert.equal(generated, 2);
+  assert.match(result.report.answerBlocks?.[0].text ?? "", /未能生成简短总结/);
+  assert.equal(result.report.answerBlocks?.[1].presentation, "bullet");
+  assert.equal(result.report.summary[0].text, "适用边界：研究结果有适用边界。");
+  assert.ok(result.warnings.includes("opening-recovery-failed"));
 });

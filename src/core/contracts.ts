@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const ANSWER_LEAD_MAX_LENGTH = 120;
+
 export const referenceSchema = z.object({
   sourceId: z.string().max(12),
   quote: z.string().min(15).max(4000),

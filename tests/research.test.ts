@@ -44,7 +44,7 @@ test("question becomes semantic search keywords; one useful article is enough an
   }, async () => {
     const result = await runAnalysisGraph({ idea, socialTargetLength: 2000 }, {
       ...analysisDependencies,
-      generateReport: async () => ({ draft: { title: idea, summary: [{ text: "部分初级岗位的招聘需求可能变化。", references: [{ sourceId: "S1", quote: body }] }], cards: [], limitations: [] }, modelCalls: 1, totalTokens: 5, warnings: [] }),
+      generateReport: async () => ({ draft: { title: idea, summary: [{ presentation: "lead", text: "部分初级岗位的招聘需求可能变化。", references: [{ sourceId: "S1", quote: body }] }], cards: [], limitations: [] }, modelCalls: 1, totalTokens: 5, warnings: [] }),
       generateSocialContent: async (report, sources) => ({ socialContent: reportBasedSocial(report, sources, 2000), modelCalls: 0, totalTokens: 0, durationMs: 0 }),
       signSocialSnapshot: () => "test-token",
     });

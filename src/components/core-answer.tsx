@@ -1,5 +1,6 @@
 import type { Draft, PublicSource, Reference } from "@/core/contracts";
 import { canonicalUrl } from "@/core/sources";
+import { hasOpeningSummary } from "@/core/report";
 
 function SourceLinks({ references, sources }: { references: Reference[]; sources: PublicSource[] }) {
   const ids = [...new Set(references.map((reference) => reference.sourceId))];
@@ -17,13 +18,15 @@ function SourceLinks({ references, sources }: { references: Reference[]; sources
 
 export function CoreAnswer({ report, sources }: { report: Draft; sources: PublicSource[] }) {
   const blocks = report.answerBlocks ?? report.summary;
-  const content = (item: Draft["summary"][number]) => <>
-    {item.label && <strong>{item.label}： </strong>}{item.text}{" "}
+  const content = (item: Draft["summary"][number], opening = false) => <>
+    {item.label && <strong>{item.label}： </strong>}
+    {opening ? <strong className="answer-opening">{item.text}</strong> : item.text}{" "}
     <SourceLinks references={item.references} sources={sources}/>
   </>;
   const elements = [];
   for (let index = 0; index < blocks.length; index++) {
     const item = blocks[index];
+    const opening = index === 0 && hasOpeningSummary({ summary: [{ ...item, presentation: item.presentation ?? "lead" }] });
     if (item.presentation === "bullet") {
       const bullets = [];
       const start = index;
@@ -34,8 +37,8 @@ export function CoreAnswer({ report, sources }: { report: Draft; sources: Public
       index--;
       elements.push(<ul className="answer-points" key={start}>{bullets}</ul>);
     } else {
-      elements.push(<div key={index} className={`summary-item answer-${item.presentation ?? (index === 0 ? "lead" : "paragraph")}`}>
-        <p>{content(item)}</p>
+      elements.push(<div key={index} className={`summary-item answer-${opening ? "lead" : item.presentation === "lead" ? "paragraph" : item.presentation ?? "paragraph"}`}>
+        <p>{content(item, opening)}</p>
       </div>);
     }
   }
