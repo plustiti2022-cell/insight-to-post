@@ -1,4 +1,4 @@
-import type { Analysis } from "../../core/contracts";
+import type { Analysis, SocialImageResult } from "../../core/contracts";
 import { targetLength } from "../../core/social";
 import {
   eligibleForGeneration,
@@ -10,6 +10,7 @@ import { researchWithTavily } from "../services/research";
 import { generateReport } from "../services/report";
 import { generateSocialContent } from "../services/social";
 import { signSocialSnapshot } from "../services/snapshot";
+import { generateSocialImage } from "../services/image";
 import type { Observer } from "../runtime";
 import { edges, START, END } from "./edges";
 import { nodes } from "./nodes";
@@ -29,6 +30,18 @@ export const analysisDependencies: AnalysisDependencies = {
   signSocialSnapshot,
 };
 export type { AnalysisDependencies } from "./state";
+
+// 配图由用户独立触发；在此组装服务，与研究图共用取消边界。
+export async function createSocialImage(
+  text: string,
+  signal?: AbortSignal,
+  generate: (text: string, signal?: AbortSignal) => Promise<SocialImageResult> = generateSocialImage,
+) {
+  signal?.throwIfAborted();
+  const result = await generate(text, signal);
+  signal?.throwIfAborted();
+  return result;
+}
 
 export async function runAnalysisGraph(
   input: AnalysisInput,

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Copy, LoaderCircle, RefreshCw, MessageCircle } from 'lucide-react';
 import type { Analysis, Reference, SocialContent as Content } from '@/core/contracts';
 import { Citation } from './metric-card';
+import { SocialImage } from './social-image';
 export function SocialContent({ analysis, isDemo, onSource }: { analysis: Analysis; isDemo: boolean; onSource: (id: string, refs: Reference[]) => void }) {
   const [content, setContent] = useState<Content | undefined>(analysis.socialContent);
   const [copyStatus, setCopyStatus] = useState(''); const [loading, setLoading] = useState(false); const [manual, setManual] = useState(false);
@@ -43,6 +44,7 @@ export function SocialContent({ analysis, isDemo, onSource }: { analysis: Analys
       <details className="social-evidence"><summary>查看文案依据</summary>{[...new Set(content.claimReferences.map(ref => ref.paragraphIndex))].map(index => <div key={index}><span>{index<0 ? "综合观点依据" : `第 ${index+1} 段`}</span><Citation references={content.claimReferences.filter(ref => ref.paragraphIndex === index).map(ref => ({ sourceId: ref.sourceId, quote: ref.quote }))} onSource={onSource}/></div>)}</details>
     </> : <div className="social-state">{isDemo ? '界面示例为虚构数据，不生成待发布文案。' : (content?.warnings ?? ['本次未生成可用文案。']).join(' ')}</div>}
     <div className="social-actions"><button className="submit-button" disabled={!ready || loading} onClick={copy}>{copyStatus === '已复制' ? <Check size={16}/> : <Copy size={16}/>} {copyStatus === '已复制' ? '已复制' : '一键复制'}</button>{analysis.socialRetryToken && !isDemo && <button className="social-retry" disabled={loading} onClick={retry}><RefreshCw size={15}/> 重新生成文案</button>}</div>
+    {ready && !loading && content && <SocialImage key={content.text} text={content.text}/>}
     {copyStatus && <p className="social-feedback" role="status" aria-live="polite">{copyStatus}</p>}
     {manual && ready && content && <div className="manual-copy"><label htmlFor="manual-copy">手动复制文字</label><textarea id="manual-copy" ref={field} readOnly value={content.text}/><button className="social-retry" onClick={() => {field.current?.focus();field.current?.select();}}>全选文字</button></div>}
     {ready && <p className="social-footnote">{content && content.targetLength > 280 ? '长文需要 X 账号支持长帖。' : ''}发布前请核对原文；生成内容仍可能出错。</p>}

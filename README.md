@@ -1,6 +1,6 @@
 # Insight-to-Post · 研究观察与社交文案
 
-输入问题，千问规划检索词，Tavily 搜索并提取文章，按段落呈现有信源的回答，再生成可一键复制的 X 纯文字文案。
+输入问题，千问规划检索词，Tavily 搜索并提取文章，按段落呈现有信源的回答，再生成可一键复制的 X 文案；点击“生成配图”可为当前文案生成一张插画并下载。
 
 ## 最新输出规则（2026-10-07）
 
@@ -20,10 +20,11 @@
 
 ## 启动
 
-需要 Node.js 22/24 LTS、npm 和两个服务的有效密钥。配置 key.txt：
+需要 Node.js 22/24 LTS、npm 和千问、Tavily、MiniMax 三个服务的有效密钥。配置 key.txt：
 
     QWEN_API_KEY=自己的千问密钥
     TAVILY_API_KEY=自己的Tavily密钥
+    MINIMAX_API_KEY=自己的MiniMax密钥
 
 Windows 在项目目录运行：
 
@@ -50,6 +51,10 @@ POST /api/analyze 输入 idea（5～1000 字）及可选 socialTargetLength（28
 
 POST /api/social-content 接收服务器签名的 socialRetryToken，两小时有效，复用全部文章及已保留观察，只重试文案，不重复检索。每接口单进程并发上限 2；取消与新问题阻止旧结果重新出现。结果只保存在当前页面。
 
+POST /api/social-image 接收 `{ "text": "当前社交文案" }`，返回 `image`（`dataUrl / prompt / model / generatedAt`）、`attempts`、`durationMs`。配图由用户点击触发，使用 MiniMax `image-01`，固定 `n=1`、1:1（1024×1024）、base64 返回及关闭自动提示词优化。提示词明确采用“Corporate Memphis”和“Alegria”插画风格、扁平化矢量艺术、极简几何图形。页面可以查看提示词、下载图片或重新生成；重写文案和切换问题会清除旧图并取消未完成请求。演示数据不会调用图片 API。
+
+图片生成失败最多自动重试一次，使用完全相同的提示词；配置、鉴权、余额错误和取消直接返回。除此之外不做图片兜底、不替换供应商或插入占位图。按 [MiniMax 官方协议](https://platform.minimax.cn/docs/api-reference/image-generation-t2i)，提示词最多 1500 字符；当前配图接口接受最多 1200 字符的文案，序列化后的完整提示词超过上限时明确报错，不截断文案。图片以 base64 在浏览器展示和下载，无临时远程链接依赖。
+
 首次分析将完整的原始文案提示词保存在服务器签名快照中。点击“重新生成文案”时，将该提示词原封不动发送给同一模型，只生成一次，不追加纠错提示、不自动修稿。报告、结论编号与所选长度保留；生成失败时显示原因。
 
 ## 大模型调用与 prompt 管理
@@ -62,6 +67,7 @@ POST /api/social-content 接收服务器签名的 socialRetryToken，两小时�
 | `src/server/services/research.ts` → `researchWithTavily` | `searchReviewPrompt` | 用户问题、检索词、正文片段和提取状态 | 只评估首轮；有缺口补搜一次，失败保留文章 |
 | `src/server/services/report.ts` → `generateReport` | `reportPrompt` | 用户问题、来源正文片段、可选校验反馈 | 首次格式或空回答失败最多修复一次；补写模式只生成一次 |
 | `src/server/services/social.ts` → `generateSocialContent`（生成） | `socialContentPrompt` | 核心观察正文、目标长度、校验反馈 | 最多生成两次 |
+| `src/server/services/image.ts` → `generateSocialImage` | `socialImagePrompt` | 当前社交文案全文 | 同一提示词最多请求两次，每次只生成一张 |
 
 职责边界：业务模块准备数据、执行校验、控制重试与兜底；prompt 模块只导入数据类型，构建字符串；`server/providers/qwen.ts` 处理模型配置、HTTP、超时与错误。修改指令只需修改 `prompts.ts`，不需要调整调用层。文案 prompt 只接收观点，不接收来源正文或引用元数据。
 
@@ -77,10 +83,13 @@ POST /api/social-content 接收服务器签名的 socialRetryToken，两小时�
     npm run test:ui
     npm run test:ui:social
     npm run test:ui:answer
+    npm run test:ui:image
     node scripts/verify-ui-observations.mjs
 
 最后一项调用真实 API，会产生服务用量。其余测试使用模拟响应，覆盖检索词改写、按覆盖补搜、完整批量提取、分段引用直达原文，以及 prompt 集中管理、少量来源、单一类型、全部 12 篇文章、模型失败与无正文仍输出、事实校验、取消、复制及签名保护。最新实测见 [验收记录](./验收记录.md)。
 
+图片真实验证（会产生 MiniMax 用量）：`npm run verify:image`。默认使用专门编写的演示文案；也可以 `npm run verify:image -- path/to/social.txt` 使用自己的文案文件。该脚本与页面调用同一工作流入口，保存文案、完整提示词、单张图片和调用记录到 [artifacts/social-image-example](./artifacts/social-image-example/README.md)。已保存的示例无需再次调用 API 即可查看；后续执行验证会更新这个示例目录。
+
 [开发计划](./MVP开发计划.md)、[设计说明原稿](./设计决策说明.md)、[两页设计 PDF](./output/pdf/设计决策说明-v02.pdf)。旧规则保存在 docs/history；旧演示不代表当前引用政策。真实手机人工检查仍待确认。
 
-平台直接发布、流式、其他图表模板、图片导出、登录、数据库、PWA 和公网托管仍暂缓。原文、翻译和推断仍可人工核验；不声称模型或来源绝对正确。
+平台直接发布、流式、其他图表模板、登录、数据库、PWA 和公网托管仍暂缓。原文、翻译和推断仍可人工核验；不声称模型或来源绝对正确。

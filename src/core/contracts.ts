@@ -93,6 +93,20 @@ export type PublicSource = Omit<
   Source,
   "extractedContent" | "extractionStatus" | "extractionReason"
 > & { hasEvidence: boolean; status: SourceStatus; statusReason: string };
+export const socialImageInputSchema = z.object({
+  text: z.string().trim().min(1, "请先生成社交文案。").max(1200, "配图文案最多 1200 字符，请精简后重试。"),
+});
+export type SocialImage = {
+  dataUrl: string;
+  prompt: string;
+  model: string;
+  generatedAt: string;
+};
+export type SocialImageResult = {
+  image: SocialImage;
+  attempts: number;
+  durationMs: number;
+};
 export type Analysis = {
   status: "complete" | "partial" | "insufficient";
   report: Draft & { generatedAt: string };

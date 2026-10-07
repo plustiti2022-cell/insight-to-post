@@ -42,6 +42,9 @@ test('production model calls use centralized builders and prompts have no runtim
     }
   }
   assert.equal(calls, 4, '检索词规划、覆盖评估、报告生成与文案生成均使用集中提示词');
+  const imageService = readFileSync(new URL('../src/server/services/image.ts', import.meta.url), 'utf8');
+  assert.match(imageService, /const prompt = socialImagePrompt\(\{ text \}\)/);
+  assert.match(imageService, /callMiniMaxImage\(prompt, signal\)/);
 });
 
 test('report input preserves quoted text and line breaks inside JSON data', () => {

@@ -5,7 +5,7 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw '请先安装
 if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) { throw '未找到 npm，请检查 Node.js 安装。' }
 if ($Port -lt 1024 -or $Port -gt 65535) { throw '端口应在 1024–65535 之间。' }
 & node scripts/configure.mjs
-if ($LASTEXITCODE -ne 0) { throw '后端配置不完整，请检查 key.txt 或 .env.local 中的千问和 Tavily 密钥。' }
+if ($LASTEXITCODE -ne 0) { throw '后端配置不完整，请检查 key.txt 或 .env.local 中的千问、Tavily 和 MiniMax 密钥。' }
 if (-not (Test-Path -LiteralPath 'node_modules')) {
   & npm.cmd ci
   if ($LASTEXITCODE -ne 0) { throw '依赖安装失败。' }

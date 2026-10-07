@@ -12,7 +12,7 @@
 
 ```text
 src/
-  app/                      Next 页面与两个 HTTP 入口
+  app/                      Next 页面与研究、文案、配图 HTTP 入口
   components/               报告、指标、依据、文案的展示组件
   client/                   浏览器请求生命周期与演示数据
   core/                     纯业务规则与对外数据契约
@@ -43,7 +43,7 @@ flowchart LR
   Run --> Flow[节点与边]
   Run --> Services[业务服务]
   Services --> Providers[供应商适配]
-  Providers --> External[千问 / Tavily]
+  Providers --> External[千问 / Tavily / MiniMax]
   Flow --> Core[core 纯规则]
   Services --> Core
   UI --> Core
@@ -119,11 +119,19 @@ flowchart TD
 
 短操作不再加一个转发文件。一个模块出现独立变化原因、独立副作用或明显不同的数据契约时才拆分。能力契约只描述实际需要的方法，不预建工具注册表、插件体系、仓储接口或通用 Agent 引擎。
 
+## 社交配图
+
+配图是文案之后由用户独立触发的操作：`components/social-image.tsx` → `/api/social-image` → `workflow/run.ts:createSocialImage` → `services/image.ts` → `providers/minimax.ts`。服务实现在现有 `run.ts` 组装，入口在调用前后检查取消；不向研究图添加条件分支或图像失败兜底。`core/contracts.ts` 保存纯输入契约与图片返回类型，浏览器只导入这些契约。
+
+`prompts.ts:socialImagePrompt` 接收当前文案全文，固定 Corporate Memphis / Alegria、扁平矢量和极简几何风格；不把文章正文、依据或密钥传入图片模型。`services/image.ts` 管理提示词长度与最多两次请求的预算，重试原封不动重发同一个提示词，耗尽后抛出错误；取消、配置、鉴权与余额错误直接退出。没有替代图片、替代模型、缓存回退或自动改写文案。
+
+供应商适配仅负责环境配置和 MiniMax HTTP 协议：固定 `image-01`、`n=1`、1:1、base64 和关闭 prompt optimizer，检查 HTTP 及 `base_resp.status_code`，确认响应恰好一张图片并识别 PNG / JPEG / WebP；不暴露上游原始错误。页面按当前文案挂载配图组件，文案重生成和切换问题会卸载组件、取消请求并清除旧图；新旧文案不共用图片。base64 在页面展示并通过下载链接保存，服务器不新增图片存储系统。
+
 签名快照为当前文案重生成保留了原提示词，这是现行产品规则；它不是通用会话记忆。接口内的并发计数仅适用于单进程，横向部署时需改为共享额度。节点返回更新使替换运行时更容易，但不意味着已经拥有检查点、幂等重放或暂停恢复。
 
 ## 验证
 
-`npm test` 覆盖业务、工作流、取消、状态隔离、HTTP 并发释放、提示词边界、架构依赖和签名保护；`npm run typecheck`、`npm run build` 验证集成。三项 UI 脚本验证移动端布局、来源抽屉、请求重试、复制、重生成与旧结果清除，以及分段回答的域名胶囊直达原文。UI 测试使用模拟响应，真实 API 验证另行执行并会产生用量。
+`npm test` 覆盖业务、工作流、取消、状态隔离、HTTP 并发释放、提示词边界、架构依赖和签名保护，以及图片协议、次数预算、输入限制、取消和无兜底行为；`npm run typecheck`、`npm run build` 验证集成。四项 UI 脚本验证移动端布局、来源抽屉、请求重试、复制、重生成与旧结果清除、分段回答的域名胶囊直达原文，以及单张配图、下载、错误与过期请求。UI 测试使用模拟响应，`npm run verify:image` 真实调用同一配图入口并保存示例，会产生用量。
 
 ## 参考依据
 
