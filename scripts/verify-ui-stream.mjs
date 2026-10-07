@@ -36,6 +36,12 @@ const browser = await chromium.launch();
 const errors = [];
 try {
   const context = await browser.newContext({ ...devices['iPhone 13'] });
+  let imageRequests = 0;
+  await context.route('**/api/social-image', route => {
+    imageRequests++;
+    assert.deepEqual(route.request().postDataJSON(), { text: complete.socialContent.text });
+    return route.fulfill({ status: 503, json: { error: { message: '流式配图测试使用模拟响应。' } } });
+  });
   // Route only analysis fetch to a local mock HTTP server that sends real incremental bytes.
   await context.addInitScript(url => {
     const originalFetch = window.fetch.bind(window);
@@ -71,6 +77,7 @@ try {
   await page.getByText('核心观察已经通过校验。', { exact: true }).waitFor();
   await page.getByText('核心观察已生成，正在生成社交文案…', { exact: true }).waitFor();
   assert.equal(await page.getByTestId('social-text').count(), 0);
+  assert.equal(imageRequests, 0, 'partial report must not generate images before social text completes');
   assert.equal(await page.getByRole('button', { name: '取消', exact: true }).count(), 1);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.locator('.report').screenshot({ path: '.local/stream-report-before-social.png' });
@@ -81,6 +88,8 @@ try {
   response.end(bytes.subarray(split));
   await page.getByTestId('social-text').waitFor();
   assert.equal(await page.getByTestId('social-text').innerText(), complete.socialContent.text);
+  await page.getByRole('alert').filter({ hasText: '流式配图测试使用模拟响应。' }).waitFor();
+  assert.equal(imageRequests, 1, 'completed streamed social text automatically generates one image');
   await page.getByRole('button', { name: '取消', exact: true }).waitFor({ state: 'detached' });
   await page.setViewportSize({ width: 320, height: 740 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
@@ -129,6 +138,7 @@ try {
   assert.equal(await page.getByTestId('opening-text').count(), 0);
   assert.equal(await page.locator('.report').count(), 0);
   assert.deepEqual(errors, []);
+  assert.equal(imageRequests, 1, 'errors, cancellation and truncated streams cannot trigger more image requests');
   await context.close();
   console.log(`Streaming UI passed: mock click-to-first-model-text ${firstTextMs}ms, incremental opening before research, opening failure, HTTP progress, report before social, split UTF-8, 390/320px, error retention, cancellation, stale results and truncated stream.`);
 } finally {

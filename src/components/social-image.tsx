@@ -1,15 +1,14 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ImagePlus, LoaderCircle, RefreshCw, Download } from "lucide-react";
 import type { SocialImage as Image } from "@/core/contracts";
 
 export function SocialImage({ text }: { text: string }) {
   const [image, setImage] = useState<Image | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const controller = useRef<AbortController | null>(null);
-  useEffect(() => () => { controller.current?.abort(); controller.current = null; }, []);
-  async function generate() {
+  const generate = useCallback(async () => {
     if (controller.current) return;
     const active = new AbortController();
     controller.current = active;
@@ -27,16 +26,28 @@ export function SocialImage({ text }: { text: string }) {
     } finally {
       if (controller.current === active) { controller.current = null; setLoading(false); }
     }
-  }
+  }, [text]);
+  useEffect(() => {
+    // Defer until after effect setup so Strict Mode's discarded mount sends no request.
+    const timer = setTimeout(() => { void generate(); }, 0);
+    return () => {
+      clearTimeout(timer);
+      controller.current?.abort();
+      controller.current = null;
+    };
+  }, [generate]);
   const extension = image?.dataUrl.startsWith("data:image/jpeg") ? "jpg" : image?.dataUrl.startsWith("data:image/webp") ? "webp" : "png";
-  return <div className="social-image-panel">
+  return <div className="social-image-panel" aria-busy={loading}>
     <h4>社交配图</h4>
-    <p className="social-description">根据当前文案生成 1 张 Corporate Memphis / Alegria 插画</p>
+    <p className="social-description">文案完成后自动生成 1 张 Corporate Memphis / Alegria 插画</p>
     <button className="social-retry" disabled={loading} onClick={generate}>
       {loading ? <LoaderCircle size={16} className="spin"/> : image ? <RefreshCw size={16}/> : <ImagePlus size={16}/>}
       {loading ? "正在生成配图…" : image ? "重新生成配图" : "生成配图"}
     </button>
-    {loading && <p className="social-feedback" role="status">正在绘制与文案主题对应的插画。</p>}
+    {loading && <div className="social-image-loading" role="status" aria-live="polite">
+      <LoaderCircle size={32} className="spin" aria-hidden="true"/>
+      <p>正在绘制与文案主题对应的插画，请稍候…</p>
+    </div>}
     {error && <p className="social-feedback" role="alert">{error}</p>}
     {image && <>
       {/* eslint-disable-next-line @next/next/no-img-element */}

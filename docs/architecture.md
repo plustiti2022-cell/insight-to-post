@@ -129,11 +129,11 @@ flowchart TD
 
 ## 社交配图
 
-配图是文案之后由用户独立触发的操作：`components/social-image.tsx` → `/api/social-image` → `workflow/run.ts:createSocialImage` → `services/image.ts` → `providers/minimax.ts`。服务实现在现有 `run.ts` 组装，入口在调用前后检查取消；不向研究图添加条件分支或图像失败兜底。`core/contracts.ts` 保存纯输入契约与图片返回类型，浏览器只导入这些契约。
+配图由浏览器在可用社交文案完成后自动触发：`components/social-image.tsx` → `/api/social-image` → `workflow/run.ts:createSocialImage` → `services/image.ts` → `providers/minimax.ts`。组件挂载后自动请求，下方显示等待转圈，成功或失败后停止；手动按钮用于重新生成和失败重试。首次请求延迟到 effect 设置完成后，避免 React Strict Mode 的丢弃挂载重复请求；卸载时清除计时器并取消请求。演示和未完成的文案不挂载配图组件。服务实现在现有 `run.ts` 组装，入口在调用前后检查取消；不向研究图添加条件分支或图像失败兜底。`core/contracts.ts` 保存纯输入契约与图片返回类型，浏览器只导入这些契约。
 
 `prompts.ts:socialImagePrompt` 接收当前文案全文，固定 Corporate Memphis / Alegria、扁平矢量和极简几何风格；不把文章正文、依据或密钥传入图片模型。`services/image.ts` 管理提示词长度与最多两次请求的预算，重试原封不动重发同一个提示词，耗尽后抛出错误；取消、配置、鉴权与余额错误直接退出。没有替代图片、替代模型、缓存回退或自动改写文案。
 
-供应商适配仅负责环境配置和 MiniMax HTTP 协议：固定 `image-01`、`n=1`、`aspect_ratio=3:4`、base64 和关闭 prompt optimizer，检查 HTTP 及 `base_resp.status_code`，确认响应恰好一张图片并识别 PNG / JPEG / WebP；不暴露上游原始错误。页面按当前文案挂载配图组件，文案重生成和切换问题会卸载组件、取消请求并清除旧图；新旧文案不共用图片。base64 在页面展示并通过下载链接保存，服务器不新增图片存储系统。
+供应商适配仅负责环境配置和 MiniMax HTTP 协议：固定 `image-01`、`n=1`、`aspect_ratio=3:4`、base64 和关闭 prompt optimizer，检查 HTTP 及 `base_resp.status_code`，确认响应恰好一张图片并识别 PNG / JPEG / WebP；不暴露上游原始错误。页面按当前文案挂载配图组件，文案重生成和切换问题会卸载组件、取消请求并清除旧图；新文案完成后自动挂载并生成配图，新旧文案不共用图片。base64 在页面展示并通过下载链接保存，服务器不新增图片存储系统。
 
 签名快照为当前文案重生成保留了原提示词，这是现行产品规则；它不是通用会话记忆。接口内的并发计数仅适用于单进程，横向部署时需改为共享额度。节点返回更新使替换运行时更容易，但不意味着已经拥有检查点、幂等重放或暂停恢复。
 

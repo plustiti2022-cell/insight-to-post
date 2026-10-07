@@ -9,6 +9,7 @@ await mkdir('.local',{recursive:true});
 const browser=await chromium.launch();const errors=[];
 try {
   const context=await browser.newContext({...devices['iPhone 13']});
+  await context.route('**/api/social-image',route=>route.fulfill({status:503,json:{error:{message:'配图测试使用模拟响应。'}}}));
   await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:base});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/api/analyze',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(fixture)}));
@@ -63,7 +64,9 @@ try {
   await context.close();
   // An actual LAN HTTP origin is not a secure clipboard context; exercise its manual path.
   if(process.env.TEST_HTTP_BASE_URL){
-    const lan=await browser.newContext({...devices['iPhone 13']});const lanPage=await lan.newPage();lanPage.on('pageerror',e=>errors.push(e.message));
+    const lan=await browser.newContext({...devices['iPhone 13']});
+    await lan.route('**/api/social-image',route=>route.fulfill({status:503,json:{error:{message:'配图测试使用模拟响应。'}}}));
+    const lanPage=await lan.newPage();lanPage.on('pageerror',e=>errors.push(e.message));
     await lanPage.route('**/api/analyze',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(fixture)}));
     await lanPage.goto(process.env.TEST_HTTP_BASE_URL);
     assert.equal(await lanPage.evaluate(()=>isSecureContext),false,'LAN HTTP must exercise the insecure context');
