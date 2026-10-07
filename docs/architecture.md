@@ -86,7 +86,11 @@ flowchart TD
 
 公开的 `analyze(idea, signal, observe, socialTargetLength, onEvent?)` 保留原有调用方式与 JSON 返回字段，新增可选公开事件回调，脚本使用新路径直接导入。复核相关观察事件随节点一起删除。请求体实际超限时统一返回 413；研究和文案 API 分别保留单进程并发上限 2。
 
-`core/contracts.ts` 声明公开 `AnalysisEvent` 与阶段契约。执行器在节点运行前发送 `progress`，`completeReport` 合并后发送 `report`：使用与最终结果相同的公开投影，只包含已校验报告与公开来源，暂不包含文案或重生成 token。最终报告与阶段报告使用同一生成时间，文案完成时不重复滚动页面。内部 `observe` 继续用于脚本诊断，其研究正文、模型原始 JSON 和纠错内容不进入公开流。
+`core/contracts.ts` 声明公开 `AnalysisEvent` 与阶段契约。流式入口在创建研究状态前调用独立的 `streamOpening` 服务：短提示词只接收原始问题，独立 flash 模型关闭思考并流式输出接话和两个关注点。每个文字增量通过 `opening` 事件直接展示；完成后丢弃模型返回内容，再创建原状态、执行原节点和边。开场输出不保存在工作流状态、不进入任何后续模型输入或签名快照，无重试或业务兜底，失败直接传播。JSON 调用没有展示开场。服务只在 `run.ts` 组装，供应商在原 `callQwen` 协议适配中支持 Responses SSE，忽略思考和工具事件。
+
+执行器在节点运行前发送 `progress`，`completeReport` 合并后发送 `report`：使用与最终结果相同的公开投影，只包含已校验报告与公开来源，暂不包含文案或重生成 token。最终报告与阶段报告使用同一生成时间，文案完成时不重复滚动页面。内部 `observe` 继续用于脚本诊断，其研究正文、模型原始 JSON 和纠错内容不进入公开流。
+
+浏览器单独累计开场文字，切换问题或开始新请求时清除；使用既有请求身份和取消检查拦截旧增量。开场不代替核心观察，也不改变报告和文案状态。`opening.firstToken` 日志记录模型首段文字耗时，目标 2000ms；开场 token 单独记录，后续研究用量口径不变。总耗时包括开场。模拟测试验证即时转发和展示，真实供应商延迟仍需实测。协议依据：[Qwen Responses API](https://docs.qwencloud.com/api-reference/chat/openai-responses)。
 
 `server/http.ts` 按 Accept 协商 JSON / SSE，两种传输共用端点并发额度。SSE 使用 POST fetch、JSON data 帧和 15 秒注释心跳；请求输入校验发生在返回流之前，流开始后的业务错误映射为受控 `error` 事件，完成发送 `result`。取消请求或消费端关闭流会中止执行信号，额度在执行真正结束后释放。`client/analysis-stream.ts` 负责跨块 UTF-8 解码、SSE 分帧、错误与完整结束检测；`use-analysis.ts` 管理增量状态、超时和过期请求，页面先展示观察，再挂载完成的文案组件。
 

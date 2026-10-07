@@ -4,6 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   reportPrompt,
+  openingPrompt,
   socialContentPrompt, type ReportPromptSource,
 } from '../src/server/prompts';
 import { draftSchema } from '../src/core/contracts';
@@ -41,10 +42,18 @@ test('production model calls use centralized builders and prompts have no runtim
       }
     }
   }
-  assert.equal(calls, 4, '检索词规划、覆盖评估、报告生成与文案生成均使用集中提示词');
+  assert.equal(calls, 5, '开场、检索词规划、覆盖评估、报告生成与文案生成均使用集中提示词');
   const imageService = readFileSync(new URL('../src/server/services/image.ts', import.meta.url), 'utf8');
   assert.match(imageService, /const prompt = socialImagePrompt\(\{ text \}\)/);
   assert.match(imageService, /callMiniMaxImage\(prompt, signal\)/);
+});
+
+test('opening prompt is short and contains only the original question', () => {
+  const idea = '问题包含"引号"\n第二行';
+  const prompt = openingPrompt({ idea });
+  assert.ok(prompt.length - JSON.stringify(idea).length < 60);
+  assert.equal(JSON.parse(prompt.split('问题：')[1]), idea);
+  assert.match(prompt, /2个关注点.*60字内.*不下结论/);
 });
 
 test('report input preserves quoted text and line breaks inside JSON data', () => {

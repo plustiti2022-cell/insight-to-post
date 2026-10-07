@@ -15,6 +15,7 @@ export type SocialResult = ModelUsage & {
   durationMs: number;
 };
 export type AnalysisDependencies = {
+  streamOpening(idea: string, signal: AbortSignal | undefined, onDelta: (text: string) => Promise<void>): Promise<void>;
   research(
     query: string,
     signal?: AbortSignal,

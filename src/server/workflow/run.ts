@@ -11,6 +11,7 @@ import { generateReport } from "../services/report";
 import { generateSocialContent } from "../services/social";
 import { signSocialSnapshot } from "../services/snapshot";
 import { generateSocialImage } from "../services/image";
+import { streamOpening } from "../services/opening";
 import type { Observer } from "../runtime";
 import { createLogger } from "../logger";
 import { edges, START, END } from "./edges";
@@ -25,6 +26,7 @@ import {
 
 // 唯一组装点：新增供应商只需要替换能力实现，不改节点和边。
 export const analysisDependencies: AnalysisDependencies = {
+  streamOpening,
   research: researchWithTavily,
   generateReport,
   validateReport,
@@ -53,8 +55,17 @@ export async function runAnalysisGraph(
   deps: AnalysisDependencies = analysisDependencies,
 ): Promise<Analysis> {
   return logger.run("analysis", { ideaLength: input.idea.length, targetLength: input.socialTargetLength }, async () => {
-    let state = initialState(input.idea);
     const context = { ...input, start: Date.now(), deps };
+    input.signal?.throwIfAborted();
+    // 开场仅为流式展示。结束后丢弃，原图始终只接收原始问题。
+    if (input.onEvent) {
+      await deps.streamOpening(input.idea, input.signal, async text => {
+        input.signal?.throwIfAborted();
+        await input.onEvent!({ type: "opening", text });
+      });
+      input.signal?.throwIfAborted();
+    }
+    let state = initialState(input.idea);
     const generatedAt = new Date().toISOString();
     let current: NodeId | typeof END = START;
     // 有限工作流；未来增加回边时，必须显式声明预算，避免意外无限调用。

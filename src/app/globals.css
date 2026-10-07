@@ -37,3 +37,4 @@
   .search-step summary { padding: 12px; gap: 8px; font-size: 11px; }
   .search-count { font-size: 10px; }
 }
+.opening-message{margin-top:18px;padding:16px 18px;background:#f4f5ee;border:1px solid var(--line);border-radius:10px;font-size:13px;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere}

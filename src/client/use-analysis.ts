@@ -11,6 +11,7 @@ export function useAnalysis() {
   const [error, setError] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [progress, setProgress] = useState("");
+  const [opening, setOpening] = useState("");
   const controller = useRef<AbortController | null>(null);
   useEffect(
     () => () => {
@@ -38,7 +39,8 @@ export function useAnalysis() {
     setElapsed(0);
     setAnalysis(null);
     setIsDemo(false);
-    setProgress("正在连接研究服务");
+    setOpening("");
+    setProgress("正在理解问题");
     try {
       const response = await fetch("/api/analyze", {
         method: "POST",
@@ -53,6 +55,7 @@ export function useAnalysis() {
       const data = response.headers.get("content-type")?.includes("text/event-stream")
         ? await readAnalysisStream(response, event => {
             if (controller.current !== active || active.signal.aborted) return;
+            if (event.type === "opening") setOpening(value => value + event.text);
             if (event.type === "progress") setProgress(analysisProgress[event.stage]);
             if (event.type === "report") setAnalysis(event.analysis);
           })
@@ -83,6 +86,7 @@ export function useAnalysis() {
   }
   function clear() {
     setAnalysis(null);
+    setOpening("");
     setError("");
   }
   function showDemo(value: Analysis) {
@@ -96,6 +100,7 @@ export function useAnalysis() {
     error,
     elapsed,
     progress,
+    opening,
     start,
     clear,
     showDemo,

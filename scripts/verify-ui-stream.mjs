@@ -47,8 +47,22 @@ try {
   const field = page.getByRole('textbox', { name: '研究问题' });
   const start = page.getByRole('button', { name: '开始分析' });
   await field.fill('分阶段流式返回的测试问题');
+  const clickedAt = performance.now();
   await start.click();
   let response = await nextRequest();
+  // Only received model text is visible; no canned text is used to meet TTFT.
+  assert.equal(await page.getByTestId('opening-text').count(), 0);
+  const openingBytes = Buffer.from(`data: ${JSON.stringify({ type: 'opening', text: '我先看看这个问题。' })}\n\n`);
+  const openingSplit = openingBytes.indexOf(Buffer.from('我')) + 1;
+  response.write(openingBytes.subarray(0, openingSplit));
+  response.write(openingBytes.subarray(openingSplit));
+  await page.getByTestId('opening-text').filter({ hasText: '我先看看这个问题。' }).waitFor();
+  const firstTextMs = Math.round(performance.now() - clickedAt);
+  assert.ok(firstTextMs < 2000, `mock click-to-first-text took ${firstTextMs}ms`);
+  assert.equal(await page.locator('.report').count(), 0);
+  send(response, { type: 'opening', text: '\n先关注岗位需求，再看任务变化。' });
+  await page.getByTestId('opening-text').filter({ hasText: '先关注岗位需求，再看任务变化。' }).waitFor();
+  await page.locator('.input-panel').screenshot({ path: '.local/stream-opening.png' });
   send(response, { type: 'progress', stage: 'search' });
   await page.getByText('正在规划检索、提取正文并评估覆盖', { exact: true }).waitFor();
   assert.equal(await page.locator('.report').count(), 0);
@@ -72,6 +86,7 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
 
   await field.fill('流式错误保留核心观察的测试');
+  assert.equal(await page.getByTestId('opening-text').count(), 0);
   await start.click();
   response = await nextRequest();
   send(response, { type: 'report', analysis: partial });
@@ -91,9 +106,11 @@ try {
   await page.getByRole('button', { name: '取消', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '分析已取消。' }).waitFor();
   await field.fill('切换到一个完全不同的问题');
+  send(response, { type: 'opening', text: '迟到的旧开场文字' });
   send(response, { type: 'result', analysis: complete });
   response.end();
   assert.equal(await page.locator('.report').count(), 0);
+  assert.equal(await page.getByTestId('opening-text').count(), 0);
 
   await start.click();
   response = await nextRequest();
@@ -102,9 +119,18 @@ try {
   await page.getByRole('alert').filter({ hasText: '连接中断，分析未完整完成，请重试。' }).waitFor();
   assert.equal(await page.locator('.report').count(), 1);
   assert.equal(await page.getByTestId('social-text').count(), 0);
+  // Opening failure is surfaced directly, without placeholder research results.
+  await field.fill('开场模型失败的测试问题');
+  await start.click();
+  response = await nextRequest();
+  send(response, { type: 'error', error: { code: 'UPSTREAM_ERROR', message: '模拟开场失败。' } });
+  response.end();
+  await page.getByRole('alert').filter({ hasText: '模拟开场失败。' }).waitFor();
+  assert.equal(await page.getByTestId('opening-text').count(), 0);
+  assert.equal(await page.locator('.report').count(), 0);
   assert.deepEqual(errors, []);
   await context.close();
-  console.log('Streaming UI passed: incremental HTTP progress, report before social, split UTF-8, 390/320px, error retention, cancellation, stale results and truncated stream.');
+  console.log(`Streaming UI passed: mock click-to-first-model-text ${firstTextMs}ms, incremental opening before research, opening failure, HTTP progress, report before social, split UTF-8, 390/320px, error retention, cancellation, stale results and truncated stream.`);
 } finally {
   await browser.close();
   server.closeAllConnections();

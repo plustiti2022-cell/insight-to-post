@@ -9,6 +9,7 @@ export type QwenResponse = {
 export async function callQwen(
   input: string,
   signal?: AbortSignal,
+  options?: { model: string; maxOutputTokens: number; onDelta: (text: string) => Promise<void> },
 ): Promise<QwenResponse> {
   const key = process.env.QWEN_API_KEY;
   if (!key)
@@ -33,11 +34,12 @@ export async function callQwen(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: process.env.QWEN_MODEL ?? "qwen3.8-flash",
+          model: options?.model ?? process.env.QWEN_MODEL ?? "qwen3.8-flash",
           input,
           reasoning: { effort: "none" },
           store: false,
-          max_output_tokens: 7000,
+          max_output_tokens: options?.maxOutputTokens ?? 7000,
+          ...(options ? { stream: true } : {}),
         }),
         signal: signal ? AbortSignal.any([timeout, signal]) : timeout,
         cache: "no-store",
@@ -63,7 +65,9 @@ export async function callQwen(
         `千问服务返回错误（HTTP ${response.status}），请稍后重试。`,
       );
     }
-    const data = (await response.json()) as QwenResponse;
+    const data = options
+      ? await readQwenStream(response, options.onDelta, signal)
+      : (await response.json()) as QwenResponse;
     if (data.status && data.status !== "completed")
       throw new AnalysisError(
         "INCOMPLETE",
@@ -84,6 +88,52 @@ export async function callQwen(
       "CONNECTION_FAILED",
       "暂时无法连接千问服务，请检查网络后重试。",
     );
+  }
+}
+
+// Responses 协议只转发文字增量；思考、工具事件与响应 ID 不进入公开流。
+async function readQwenStream(
+  response: Response,
+  onDelta: (text: string) => Promise<void>,
+  signal?: AbortSignal,
+): Promise<QwenResponse> {
+  if (!response.body) throw new AnalysisError("INCOMPLETE", "开场回复未完整完成。");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "", completed: QwenResponse | undefined, hasText = false;
+  let ended = false;
+  async function frame(raw: string) {
+    const data = raw.split(/\r?\n/).filter(line => line.startsWith("data:"))
+      .map(line => line.slice(5).trimStart()).join("\n");
+    if (!data || data === "[DONE]") return;
+    const event = JSON.parse(data);
+    signal?.throwIfAborted();
+    if (event.type === "response.output_text.delta") {
+      if (typeof event.delta !== "string") throw new AnalysisError("INCOMPLETE", "开场回复格式异常。");
+      if (event.delta) { hasText = true; await onDelta(event.delta); }
+    } else if (event.type === "response.completed") {
+      completed = event.response;
+    } else if (["error", "response.failed", "response.incomplete"].includes(event.type)) {
+      throw new AnalysisError("UPSTREAM_ERROR", "开场模型未完成回复，请重试。");
+    }
+  }
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      let boundary: RegExpExecArray | null;
+      while ((boundary = /\r?\n\r?\n/.exec(buffer))) {
+        await frame(buffer.slice(0, boundary.index));
+        buffer = buffer.slice(boundary.index + boundary[0].length);
+      }
+      if (done) { ended = true; break; }
+    }
+    if (buffer.trim() || !completed || !hasText)
+      throw new AnalysisError("INCOMPLETE", "开场回复未完整完成。");
+    return completed;
+  } finally {
+    if (!ended) await reader.cancel().catch(() => {});
+    reader.releaseLock();
   }
 }
 export function outputText(data: QwenResponse) {

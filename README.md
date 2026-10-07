@@ -49,7 +49,11 @@ Windows 在项目目录运行：
 
 POST /api/analyze 输入 idea（5～1000 字）及可选 socialTargetLength（280 / 2000）。报告覆盖数量是已提取和实际引用文章数，不是达标门槛。诊断含搜索、补取、credits、模型调用、token 与耗时。
 
-页面默认使用分阶段流式返回：发送 `Accept: text/event-stream`，通过 POST fetch 读取 SSE。事件依次包含 `progress`（实际工作流阶段）、`report`（已校验的核心观察、指标和公开来源）、`result`（完整报告与文案）；流开始后失败用 `error` 事件返回，输入错误与并发超限仍使用 HTTP JSON 错误。流每 15 秒发送注释心跳，不公开上游原始输出。未声明 SSE 的调用继续返回原 JSON。
+页面默认使用分阶段流式返回：发送 `Accept: text/event-stream`，通过 POST fetch 读取 SSE。研究开始前，独立调用 `QWEN_OPENING_MODEL`（默认 `qwen3.8-flash`），关闭思考、最多 160 输出 token；短提示词要求先接话，再拆成两个关注点，共 60 字内、不下结论。收到文字增量立即用 `opening` 事件展示，开场结束后才执行原工作流。开场只用于展示，不进入研究状态、检索词、报告、文案或签名快照；后续仍只处理用户原始问题。开场调用一次，无自动重试、替代话术或失败兜底，失败直接返回受控错误。
+
+后续事件仍为 `progress`（实际工作流阶段）、`report`（已校验的核心观察、指标和公开来源）、`result`（完整报告与文案）；流开始后失败用 `error` 事件返回，输入错误与并发超限仍使用 HTTP JSON 错误。流每 15 秒发送注释心跳；除开场文字增量外，不公开上游原始输出、思考或工具事件。未声明 SSE 的调用继续返回原 JSON，不执行展示用的开场。
+
+首字目标为点击后 2 秒内展示模型文字，不用固定占位话术冒充首字。服务端 `opening.firstToken` 日志记录模型调用到首段文字的耗时，`opening.completed` 单独记录 token 用量；原研究诊断中的模型调用数与 token 统计保持原口径，总耗时包括开场。真实首字延迟受供应商和网络影响，需真实 API 实测；模拟 UI 验证只证明浏览器收到片段即可在两秒内展示。
 
 核心观察完成即展示，文案完成后补入复制和配图操作；后续失败或取消保留已展示的观察并说明文案未完成。切换问题清除旧结果，迟到事件不会恢复旧内容。浏览器取消与断开连接会取消后端任务；流式与 JSON 请求共用同一并发额度，任务结束后释放。
 
@@ -67,6 +71,7 @@ POST /api/social-image 接收 `{ "text": "当前社交文案" }`，返回 `image
 
 | 调用位置 | Prompt 构建函数 | 输入 | 重试行为 |
 | --- | --- | --- | --- |
+| `src/server/services/opening.ts` → `streamOpening` | `openingPrompt` | 用户原始问题 | 只调用一次，无重试或兜底；输出仅流式展示 |
 | `src/server/services/research.ts` → `researchWithTavily` | `searchQueryPrompt` | 用户问题、上海时区当前日期 | 失败用原始问题继续搜索 |
 | `src/server/services/research.ts` → `researchWithTavily` | `searchReviewPrompt` | 用户问题、检索词、正文片段和提取状态 | 只评估首轮；有缺口补搜一次，失败保留文章 |
 | `src/server/services/report.ts` → `generateReport` | `reportPrompt` | 用户问题、来源正文片段、可选校验反馈 | 首次格式或空回答失败最多修复一次；补写模式只生成一次 |
@@ -103,4 +108,4 @@ POST /api/social-image 接收 `{ "text": "当前社交文案" }`，返回 `image
 
 [开发计划](./MVP开发计划.md)、[设计说明原稿](./设计决策说明.md)、[两页设计 PDF](./output/pdf/设计决策说明-v02.pdf)。旧规则保存在 docs/history；旧演示不代表当前引用政策。真实手机人工检查仍待确认。
 
-平台直接发布、逐字流式、其他图表模板、登录、数据库、PWA 和公网托管仍暂缓。原文、翻译和推断仍可人工核验；不声称模型或来源绝对正确。
+平台直接发布、研究正文逐字流式、其他图表模板、登录、数据库、PWA 和公网托管仍暂缓。原文、翻译和推断仍可人工核验；不声称模型或来源绝对正确。

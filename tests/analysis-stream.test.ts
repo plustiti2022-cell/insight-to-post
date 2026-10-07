@@ -98,6 +98,7 @@ for (const cancellation of ["request", "reader"] as const) {
 test("client parses split UTF-8, CRLF frames and heartbeats, preserving report before result", async () => {
   const report = { ...analysis, status: "partial" as const };
   const bytes = new TextEncoder().encode(": keepalive\r\n\r\n" +
+    encoded({ type: "opening", text: "先关注问题的范围。" }) +
     encoded({ type: "progress", stage: "generate" }).replaceAll("\n", "\r\n") +
     encoded({ type: "report", analysis: report }) + encoded({ type: "result", analysis }));
   let index = 0;
@@ -107,8 +108,9 @@ test("client parses split UTF-8, CRLF frames and heartbeats, preserving report b
     else controller.enqueue(bytes.slice(index, ++index));
   } }));
   assert.deepEqual(await readAnalysisStream(response, event => events.push(event)), analysis);
-  assert.deepEqual(events.map(event => event.type), ["progress", "report", "result"]);
-  assert.equal(events[1].type === "report" && events[1].analysis.report.title, "流式测试");
+  assert.deepEqual(events.map(event => event.type), ["opening", "progress", "report", "result"]);
+  assert.equal(events[0].type === "opening" && events[0].text, "先关注问题的范围。");
+  assert.equal(events[2].type === "report" && events[2].analysis.report.title, "流式测试");
 });
 
 test("client detects truncated streams and cancels malformed or failed streams", async () => {

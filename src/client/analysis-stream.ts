@@ -32,7 +32,9 @@ export async function readAnalysisStream(
     if (!event || typeof event !== "object" || result)
       throw new Error("分析数据格式异常，请重试。");
     if (event.type === "error") throw new Error(event.error?.message || "分析失败，请重试。");
-    if (event.type === "progress") {
+    if (event.type === "opening") {
+      if (typeof event.text !== "string") throw new Error("开场数据格式异常，请重试。");
+    } else if (event.type === "progress") {
       if (!Object.hasOwn(analysisProgress, event.stage)) throw new Error("分析进度格式异常，请重试。");
     } else if (event.type === "report" || event.type === "result") {
       if (!event.analysis?.report || !Array.isArray(event.analysis.sources) || !event.analysis.diagnostics)

@@ -32,6 +32,7 @@ export default function Home() {
     error,
     elapsed,
     progress,
+    opening,
     start,
     clear,
     showDemo,
@@ -186,6 +187,11 @@ export default function Home() {
               <div className="error-message" role="alert">
                 <CircleAlert size={17} />
                 <span>{error}</span>
+              </div>
+            )}
+            {opening && (
+              <div className="opening-message" data-testid="opening-text" aria-live="polite">
+                {opening}
               </div>
             )}
             {loading && (
