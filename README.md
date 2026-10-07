@@ -75,6 +75,12 @@ POST /api/social-image 接收 `{ "text": "当前社交文案" }`，返回 `image
 
 新增模型调用时，在 `prompts.ts` 定义具名输入类型和构建函数，调用层使用 `callQwen(promptBuilder(input), …)`，不要在调用层拼接指令或重试提示。`tests/prompts.test.ts` 检查所有生产 `callQwen` 调用使用集中构建函数，并检查 prompt 模块没有运行时依赖。
 
+## 运行日志
+
+启动或重启服务后，在运行 `npm run dev`、`npm start` 或 `start.ps1` 的服务端终端查看日志。日志默认启用，每行一个 JSON，包含 `timestamp`、`level`、`scope`、`event` 和 `runId`；按同一个 `runId` 可追踪一次分析中各节点及服务的日志。独立重生成文案和配图各自使用新的运行 ID。
+
+`workflow` 记录每个实际执行节点的开始、完成、转移、失败或取消及耗时；`research` 记录检索词规划、搜索、正文提取和覆盖评估；`report`、`social` 和 `image` 记录模型尝试、校验、重试与兜底。正常为 `info`，校验失败、重试及业务兜底为 `warn`，向调用方抛出的失败为 `error`，取消单独标记为 `cancelled`。日志只输出数量、长度、用量及受控错误码，不记录密钥、签名 token、提示词、正文、文案全文、图片 base64 或上游原始错误。浏览器开发者控制台不显示这些服务端日志。
+
 ## 验证与交付
 
     npm test

@@ -1,10 +1,12 @@
 import { AnalysisError, rethrowCancellation } from "../runtime";
+import { createLogger, failureDetails } from "../logger";
 import {
   countCoverage,
   eligibleForGeneration,
 } from "../../core/sources";
 import { completeReport, hasOpeningSummary } from "../../core/report";
 import { emptyDraft, type Node, type NodeId } from "./state";
+const logger = createLogger("workflow.nodes");
 
 // 同一流程中的短节点集中管理；每个节点返回更新，只有执行器合并状态。
 function reportNode(node: Node, attemptedCalls = 0): Node {
@@ -17,6 +19,7 @@ function reportNode(node: Node, attemptedCalls = 0): Node {
       };
     } catch (error) {
       rethrowCancellation(error, context.signal);
+      logger.warn("report.fallback", failureDetails(error));
       return {
         modelCalls: counted.modelCalls,
         draft: emptyDraft(context.idea),
@@ -43,6 +46,7 @@ export const nodes: Record<NodeId, Node> = {
       };
     } catch (error) {
       rethrowCancellation(error, signal);
+      logger.warn("search.fallback", failureDetails(error));
       return {
         research: {
           sources: [],
@@ -68,6 +72,7 @@ export const nodes: Record<NodeId, Node> = {
       };
     } catch (error) {
       rethrowCancellation(error, signal);
+      logger.warn("supplement.fallback", failureDetails(error));
       return {
         research: {
           ...prior,
@@ -154,14 +159,17 @@ export const nodes: Record<NodeId, Node> = {
       signal?.throwIfAborted();
       const validated = deps.validateReport({ ...generated.draft, cards: [] }, sources);
       warnings.push(...validated.warnings);
-      if (!hasOpeningSummary(validated.report))
+      if (!hasOpeningSummary(validated.report)) {
+        logger.warn("answerRecovery.invalid", { warningCount: validated.warnings.length });
         return { modelCalls, totalTokens, warnings };
+      }
       return {
         draft: { ...state.draft, summary: validated.report.summary },
         modelCalls, totalTokens, warnings,
       };
     } catch (error) {
       rethrowCancellation(error, signal);
+      logger.warn("answerRecovery.fallback", failureDetails(error));
       return {
         modelCalls, totalTokens,
         warnings: [...warnings, error instanceof Error ? error.message : "回答补写未能完成，请重新分析。"],
