@@ -22,9 +22,9 @@ export function SourceSheet({ selection, close }: { selection: Selection | null;
     <h2 id="source-title">{source.title || "标题未知"}</h2><p className="source-domain">{new URL(source.url).hostname}</p>
     <div className="source-meta"><span>{source.sourceType}</span><span>{sourceStatusLabels[source.status]}</span><span>{source.publishedAt || "发布日期未知"}</span></div>
     <p className="muted">{source.statusReason}</p>
-    <h3 className="quote-heading">{quotes.length ? "支持此结论的证据片段" : "证据状态"}</h3>
-    {quotes.length ? [...new Set(quotes.map(ref => ref.quote))].map(quote => <blockquote key={quote}>{quote}</blockquote>) : null}
-    <p className="sheet-note">{quotes.length ? "片段来自本次网页提取。请打开原文核对上下文、统计范围和数据时间。" : "此来源没有被本次最终报告引用；仍可打开原文自行查看。"}</p>
+    <h3 className="quote-heading">支持此结论的证据片段</h3>
+    {[...new Set(quotes.map(ref => ref.quote))].map(quote => <blockquote key={quote}>{quote}</blockquote>)}
+    <p className="sheet-note">片段来自本次网页提取。请打开原文核对上下文、统计范围和数据时间。</p>
     <a className="primary-link" href={source.url} target="_blank" rel="noopener noreferrer">打开原文 <ArrowUpRight size={18}/></a></div>
   </dialog>;
 }
