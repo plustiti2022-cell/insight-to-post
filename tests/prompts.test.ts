@@ -135,6 +135,8 @@ test('report prompt separates a bounded short summary from evidence in the follo
   assert.match(prompt, /通常40–90字，最多120字符/);
   assert.match(prompt, /具体案例和详细数据放入后续要点/);
   assert.match(prompt, /展开后用presentation="conclusion"简短综合要点/);
+  assert.match(prompt, /每次都须完整输出首答、带标题的要点和末尾结论/);
+  assert.doesNotMatch(prompt, /简单问题可只输出首答/);
   assert.match(reportPrompt({ idea: '问题', sources: [], formatCorrection: '开篇总结过长' }), /不截断正文/);
 
   // 输出示例必须能通过实际报告结构和引用映射，避免精简时改变引用协议。

@@ -3,6 +3,7 @@ export class AnalysisError extends Error {
     public code: string,
     message: string,
     public status = 502,
+    public modelUsage?: { modelCalls: number; totalTokens: number },
   ) {
     super(message);
     this.name = "AnalysisError";

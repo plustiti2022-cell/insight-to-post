@@ -18,7 +18,7 @@ export async function generateReport(
   sources: Source[],
   signal?: AbortSignal,
   observe?: (stage: string, data: unknown) => Promise<void>,
-  options: { answerOnly?: boolean; answerFeedback?: readonly string[] } = {},
+  options: { answerOnly?: boolean; answerFeedback?: readonly string[]; singleAttempt?: boolean } = {},
 ) {
   return logger.run("generate", { sourceCount: sources.length, answerOnly: Boolean(options.answerOnly) }, async () => {
     const records = evidenceRegistry(sources, idea);
@@ -30,7 +30,7 @@ export async function generateReport(
       }));
     let totalTokens = 0;
     let correction = "";
-    const attempts = options.answerOnly ? 1 : 2;
+    const attempts = options.answerOnly || options.singleAttempt ? 1 : 2;
     for (let attempt = 0; attempt < attempts; attempt++) {
       logger.info("model.started", { attempt: attempt + 1, maxAttempts: attempts });
       const result = await callQwen(
@@ -80,6 +80,8 @@ export async function generateReport(
         });
         if (!summary.length)
           throw new Error("summary没有有效回答，请提供非空正文和输入中可定位的引用编号。");
+        if (summary.length !== input.summary.length)
+          throw new Error("回答段落因结构或引用无效被移除，须重新生成完整回答。");
         const structureIssues = answerStructureIssues(summary);
         if (structureIssues.length) throw new Error(structureIssues.join("；"));
         logger.info("validation.completed", { attempt: attempt + 1, summaryCount: summary.length, cardCount: cards.length, warningCount: warnings.length });
@@ -109,7 +111,9 @@ export async function generateReport(
     }
     throw new AnalysisError(
       "INVALID_REPORT",
-      "模型未能生成包含有效回答的报告，请重试。",
+      `模型未能生成包含完整回答的报告。校验问题：${correction}。`,
+      502,
+      { modelCalls: attempts, totalTokens },
     );
   }, signal);
 }

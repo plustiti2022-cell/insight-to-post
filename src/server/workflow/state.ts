@@ -26,7 +26,7 @@ export type AnalysisDependencies = {
     sources: Source[],
     signal?: AbortSignal,
     observe?: Observer,
-    options?: { answerOnly?: boolean; answerFeedback?: readonly string[] },
+    options?: { answerOnly?: boolean; answerFeedback?: readonly string[]; singleAttempt?: boolean },
   ): Promise<ModelUsage & { draft: Draft; warnings: string[] }>;
   validateReport(
     draft: Draft,

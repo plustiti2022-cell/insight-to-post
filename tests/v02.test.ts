@@ -143,6 +143,7 @@ test('signed social retry rejects client changes and a report missing extracted 
 test('locally valid report retains all observations and skips model review',async()=>{
   const undo=restore(['QWEN_API_KEY','TAVILY_API_KEY']);const original=globalThis.fetch;process.env.QWEN_API_KEY='test-only';process.env.TAVILY_API_KEY='test-only';let searches=0,reports=0,socialCalls=0;
   const rawReport={title:'test',cards:[],limitations:[],summary:sources.map((s,i)=>({presentation:i===0?'lead':'bullet',...(i?{label:'研究要点'}:{}),text:facts[i],references:[{sourceId:s.id,evidenceId:`${s.id}-E1`}]})).slice(0,3)};
+  rawReport.summary.push({presentation:'conclusion',text:'研究结果需要结合适用条件理解。',references:[{sourceId:'S1',evidenceId:'S1-E1'}]});
   // 三条总结覆盖五来源，本地校验通过后直接保留。
   rawReport.summary[0].references.push({sourceId:'S4',evidenceId:'S4-E1'});rawReport.summary[2].references.push({sourceId:'S5',evidenceId:'S5-E1'});
   globalThis.fetch=async(url,init)=>{
@@ -159,8 +160,9 @@ test('locally valid report retains all observations and skips model review',asyn
 });
 test('one structurally invalid metric is dropped without losing valid cited analysis',async()=>{
   const undo=restore(['QWEN_API_KEY']);const original=globalThis.fetch;process.env.QWEN_API_KEY='test-only';
-  globalThis.fetch=async()=>Response.json({status:'completed',output_text:JSON.stringify({title:'test',summary:[{presentation:'lead',text:'有边界的实验。',references:[{sourceId:'S1',evidenceId:'S1-E1'}]}],cards:[{label:'缺失单位',value:'48',unit:'',references:[{sourceId:'S1',evidenceId:'S1-E1'}]}],limitations:[]})});
-  try {const r=await generateReport('研究问题',sources);assert.equal(r.draft.cards.length,0);assert.equal(r.draft.summary.length,1);assert.ok(r.warnings.some(w=>w.includes('已移除')));assert.equal(r.modelCalls,1);}finally{globalThis.fetch=original;undo();}
+  const refs=[{sourceId:'S1',evidenceId:'S1-E1'}];
+  globalThis.fetch=async()=>Response.json({status:'completed',output_text:JSON.stringify({title:'test',summary:[{presentation:'lead',text:'有边界的实验。',references:refs},{presentation:'bullet',label:'适用条件',text:'实验有特定条件。',references:refs},{presentation:'conclusion',text:'应结合条件判断。',references:refs}],cards:[{label:'缺失单位',value:'48',unit:'',references:refs}],limitations:[]})});
+  try {const r=await generateReport('研究问题',sources);assert.equal(r.draft.cards.length,0);assert.equal(r.draft.summary.length,3);assert.ok(r.warnings.some(w=>w.includes('已移除')));assert.equal(r.modelCalls,1);}finally{globalThis.fetch=original;undo();}
 });
 test('evidence budget retains each source and can find relevant evidence beyond the page navigation',()=>{
   const extended=sources.map(s=>({...s,extractedContent:'Navigation sign in subscribe privacy policy '.repeat(350)+'\n\n'+s.extractedContent+' AlphaEvolve evaluation limitations.'}));
@@ -185,10 +187,11 @@ test('Tavily timeout is bounded and does not turn a missing body into evidence',
 test('a failed social model call produces report-based copy and preserves the retry snapshot',async()=>{
   const undo=restore(['QWEN_API_KEY','TAVILY_API_KEY']);const original=globalThis.fetch;process.env.QWEN_API_KEY='test-only';process.env.TAVILY_API_KEY='test-only';let searches=0;
   const rawReport={title:'test',cards:[],limitations:[],summary:[{presentation:'lead',text:'有边界的实验研究。',references:sources.slice(0,3).map(s=>({sourceId:s.id,evidenceId:`${s.id}-E1`}))},{presentation:'bullet',label:'人的职责',text:'研究仍需要人的目标与判断。',references:sources.slice(3).map(s=>({sourceId:s.id,evidenceId:`${s.id}-E1`}))}]};
+  rawReport.summary.push({presentation:'conclusion',text:'理解实验结果仍需要人的判断。',references:[{sourceId:'S1',evidenceId:'S1-E1'}]});
   globalThis.fetch=async(url,init)=>{
     if(String(url).endsWith('/search')){searches++;return Response.json({results:sources.map(s=>({url:s.url,title:s.title,raw_content:s.extractedContent}))});}
     const body=JSON.parse(String(init?.body));
-    if(body.input.startsWith('你是中文'))throw new Error('network unavailable');
+    if(body.input.startsWith('你是中文社交媒体作者'))throw new Error('network unavailable');
     if(body.input.startsWith('你是检索规划'))return Response.json({output_text:JSON.stringify({query:'research question evidence'})});
     if(body.input.startsWith('你是检索评估'))return Response.json({output_text:JSON.stringify({followUpQuery:null})});
     return Response.json({status:'completed',output_text:JSON.stringify(rawReport)});
@@ -212,10 +215,10 @@ test('an article made of short paragraphs still gets evidence and appears in bot
   assert.equal(completed.summary[0].references[0].sourceId,article.id);
   assert.equal(reportBasedSocial(completed,[article],2000).coverage.citedSourceCount,1);
 });
-test('two articles of one type still produce observations and copy when Qwen is unavailable',async()=>{
+test('two articles of one type cannot substitute for a complete answer when Qwen remains unavailable',async()=>{
   const undo=restore(['QWEN_API_KEY','TAVILY_API_KEY']);const original=globalThis.fetch;process.env.QWEN_API_KEY='test-only';process.env.TAVILY_API_KEY='test-only';
   globalThis.fetch=async url=>{if(String(url).endsWith('/search'))return Response.json({results:sources.slice(0,2).map(s=>({url:s.url,title:s.title,raw_content:s.extractedContent}))});throw new Error('network unavailable');};
-  try{const result=await analyze('一类来源的研究观察');assert.equal(result.status,'complete');assert.equal(result.report.summary.length,1);assert.equal(result.coverage?.citedSourceCount,2);assert.equal(result.socialContent?.status,'ready');assert.equal(result.socialContent?.coverage.citedSourceCount,2);assert.ok(result.sources.every(s=>s.status==='referenced'));}finally{globalThis.fetch=original;undo();}
+  try{await assert.rejects(analyze('一类来源的研究观察'),{code:'INVALID_REPORT'});}finally{globalThis.fetch=original;undo();}
 });
 test('core answer is one paragraph and article titles and extracts stay only in citation metadata',()=>{
   const completed=includeEveryArticle({...report,summary:[...report.summary,{text:'《SECRET SOURCE TITLE》提供的原文线索：“PRIVATE RAW EVIDENCE”。这段材料可与本次问题对照阅读。',references:[{sourceId:'S1',quote:sources[0].extractedContent}]}]},sources);
@@ -243,7 +246,7 @@ test('social writing receives only the displayed core observation, excluding car
   };
   try{const result=await generateSocialContent(markedReport,markedSources);assert.equal(result.socialContent.status,'ready');assert.deepEqual(result.socialContent.warnings,[]);}finally{globalThis.fetch=original;undo();}
 });
-test('an unsuccessful search produces an honest retrieval observation and copy without invented citations',async()=>{
+test('an unsuccessful search reports missing evidence instead of publishing fallback copy',async()=>{
   const undo=restore(['TAVILY_API_KEY']);const original=globalThis.fetch;process.env.TAVILY_API_KEY='test-only';globalThis.fetch=async()=>{throw new Error('network unavailable');};
-  try{const result=await analyze('检索失败时的观察');assert.equal(result.status,'complete');assert.ok(result.report.summary[0].text.includes('未取得'));assert.equal(result.sources.length,0);assert.equal(result.socialContent?.status,'ready');assert.equal(result.socialContent?.claimReferences.length,0);assert.equal(result.coverage?.citedSourceCount,0);}finally{globalThis.fetch=original;undo();}
+  try{await assert.rejects(analyze('检索失败时的观察'),{code:'NO_EVIDENCE'});}finally{globalThis.fetch=original;undo();}
 });

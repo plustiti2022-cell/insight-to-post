@@ -17,8 +17,10 @@ export function answerStructureIssues(summary: Draft["summary"]): string[] {
     issues.push("后续内容包含重复lead，黑体首答位置或数量无效。");
   if (summary.some((item) => item.presentation === "bullet" && !item.label?.trim()))
     issues.push("bullet缺少简短要点标题label。");
-  if (summary.length > 1 && !summary.slice(1).some((item) => item.presentation === "bullet"))
+  if (!summary.slice(1).some((item) => item.presentation === "bullet"))
     issues.push("展开内容缺少分点bullet，详细解释不能全部输出为普通段落。");
+  if (summary.at(-1)?.presentation !== "conclusion")
+    issues.push("回答缺少末尾conclusion，须在要点后完整给出结论。");
   return issues;
 }
 

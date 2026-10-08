@@ -57,7 +57,11 @@ test("production services log all visited nodes, recovery, social replay and ima
   names.forEach((name) => { process.env[name] = "private-test-credential"; });
   const body = "PRIVATE_ARTICLE_BODY Researchers documented limitations and the scope of the findings. ".repeat(3);
   const text = "研究结果有适用边界。";
-  const rawReport = { title: "test", summary: [{ presentation: "lead", text, references: [{ sourceId: "S1", evidenceId: "S1-E1" }] }], cards: [], limitations: [] };
+  const rawReport = { title: "test", summary: [
+    { presentation: "lead", text, references: [{ sourceId: "S1", evidenceId: "S1-E1" }] },
+    { presentation: "bullet", label: "边界", text: "实验结果有适用条件。", references: [{ sourceId: "S1", evidenceId: "S1-E1" }] },
+    { presentation: "conclusion", text: "应结合条件理解结果。", references: [{ sourceId: "S1", evidenceId: "S1-E1" }] },
+  ], cards: [], limitations: [] };
   const rawSocial = { paragraphs: [
     { text: "这些变化值得关注。", claimIds: [] },
     { text, claimIds: ["summary-1"] },

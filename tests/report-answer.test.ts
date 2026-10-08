@@ -14,8 +14,8 @@ const source: Source = {
   extractedContent: "Coding task performance alone does not establish changes in overall employment or junior hiring.",
   extractionStatus: "available", extractionReason: "test",
 };
-const answer = "AI编程可能改变初级岗位的工作内容和招聘需求。\n\n但仅凭编码任务表现，还不能判断整个市场的岗位数量已经减少。";
-const raw = { title: "AI编程与初级岗位", summary: answer.split("\n\n").map((text, index) => ({ presentation: index === 0 ? "lead" : "bullet", ...(index ? { label: "证据边界" } : {}), text, references: [{ sourceId: "S1", evidenceId: "S1-E1" }] })), cards: [], limitations: [] };
+const answer = "AI编程可能改变初级岗位的工作内容和招聘需求。\n\n但仅凭编码任务表现，还不能判断整个市场的岗位数量已经减少。\n\n应区分任务表现与整体就业变化。";
+const raw = { title: "AI编程与初级岗位", summary: answer.split("\n\n").map((text, index) => ({ presentation: index === 0 ? "lead" : index === 1 ? "bullet" : "conclusion", ...(index === 1 ? { label: "证据边界" } : {}), text, references: [{ sourceId: "S1", evidenceId: "S1-E1" }] })), cards: [], limitations: [] };
 
 test("an empty or malformed answer is repaired with the original question and evidence", async () => {
   const originalFetch = globalThis.fetch, originalKey = process.env.QWEN_API_KEY;
@@ -150,6 +150,7 @@ test("the screenshot's dense bold introduction is regenerated as a short lead wi
     { presentation: "lead", text: "会减少部分岗位需求，但行业影响并不均匀，短期就业变化也不能全部归因于AI。", references: refs },
     { presentation: "bullet", label: "岗位入口", text: "重复任务的自动化会改变初级岗位的工作内容与培养路径。", references: refs },
     { presentation: "bullet", label: "证据边界", text: detail, references: refs },
+    { presentation: "conclusion", text: "需要结合招聘资料判断岗位变化。", references: refs },
   ] };
   const prompts: string[] = [];
   globalThis.fetch = async (_url, init) => {

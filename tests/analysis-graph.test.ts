@@ -36,6 +36,8 @@ const draft: Draft = {
         quote: source.extractedContent,
       })),
     },
+    { presentation: "bullet", label: "适用边界", text: "实验结果需要结合适用范围理解。", references: [{ sourceId: "S1", quote: sources[0].extractedContent }] },
+    { presentation: "conclusion", text: "这些研究支持有条件的判断。", references: [{ sourceId: "S1", quote: sources[0].extractedContent }] },
   ],
   cards: [],
   limitations: [],
@@ -252,39 +254,31 @@ test("failed supplement is attempted once and preserves the original article", a
   assert.ok(result.warnings.includes("补充搜索失败，保留已有来源。"));
 });
 
-test("no evidence skips report models and still returns honest fallback outputs", async () => {
+test("no evidence skips report and social models and reports an explicit extraction failure", async () => {
   const { deps, calls } = fixture();
   let searches = 0;
   deps.research = async () => {
     searches++;
     throw new Error("offline");
   };
-  const result = await runAnalysisGraph(input, deps);
+  await assert.rejects(runAnalysisGraph(input, deps), { code: "NO_EVIDENCE" });
   assert.equal(searches, 1);
-  assert.deepEqual(calls, ["social", "sign"]);
-  assert.match(result.report.summary[0].text, /未取得/);
-  // 保留现有规则：空来源集合也满足“全部文章已引用”，仍提供重生成快照。
-  assert.equal(result.socialRetryToken, "signed-test");
+  assert.deepEqual(calls, []);
 });
 
 for (const failedStage of [
   "generateReport",
   "validateReport",
 ] as const) {
-  test(`${failedStage} failure still covers every article without incomplete claims`, async () => {
+  test(`${failedStage} repeated failure stops before publishing a partial report or social copy`, async () => {
     const { deps, calls } = fixture();
     deps[failedStage] = () => {
       throw new Error("failed-stage");
     };
-    const result = await runAnalysisGraph(input, deps);
-    assert.ok(result.warnings.includes("failed-stage"));
-    assert.equal(result.coverage?.citedSourceCount, 5);
-    assert.ok(
-      !result.report.summary.some((item) =>
-        item.text.includes("研究结果有适用边界"),
-      ),
-    );
-    assert.ok(calls.includes("social"));
+    const events: AnalysisEvent[] = [];
+    await assert.rejects(runAnalysisGraph({ ...input, onEvent: async event => { events.push(event); } }, deps), { code: "INVALID_REPORT" });
+    assert.ok(!events.some(event => event.type === "report"));
+    assert.ok(!calls.includes("social"));
   });
 }
 
@@ -337,8 +331,11 @@ test("cancellation between nodes stops before generating a report", async () => 
 test("concurrent runs keep warnings and reports isolated", async () => {
   const first = fixture(),
     second = fixture();
+  let attempts = 0;
+  const generate = first.deps.generateReport;
   first.deps.generateReport = async () => {
-    throw new Error("first-only");
+    if (++attempts === 1) throw new Error("first-only");
+    return generate(input.idea, sources);
   };
   const [a, b] = await Promise.all([
     runAnalysisGraph({ ...input, idea: "first" }, first.deps),
@@ -378,7 +375,7 @@ test("a rejected answer is rewritten once with the original question, evidence a
   const { deps } = fixture();
   const originalGenerate = deps.generateReport;
   const question = 'AI编程会不会减少当前初级岗位的数量';
-  const answer = 'AI编程可能减少部分重复性编码岗位的招聘需求。\n\n但任务效率的变化还不能直接证明整个市场的初级岗位已经减少。';
+  const answer = 'AI编程可能减少部分重复性编码岗位的招聘需求。\n\n证据边界：任务效率的变化还不能直接证明整个市场的初级岗位已经减少。\n\n应结合招聘研究判断就业变化。';
   let generated = 0, validated = 0;
   deps.generateReport = async (idea, articles, signal, observe, options) => {
     generated++;
@@ -389,8 +386,10 @@ test("a rejected answer is rewritten once with the original question, evidence a
       assert.equal(options?.answerOnly, true);
       assert.ok(options?.answerFeedback?.includes('回答包含未支持的数字。'));
       result.draft.summary = answer.split("\n\n").map((text, index) => ({
-        presentation: index === 0 ? "lead" : "paragraph",
-        text, references: result.draft.summary[0].references,
+        presentation: index === 0 ? "lead" : index === 1 ? "bullet" : "conclusion",
+        ...(index === 1 ? { label: "证据边界" } : {}),
+        text: text.replace(/^证据边界：/, ""),
+        references: result.draft.summary[0].references,
       }));
     }
     return result;
@@ -416,12 +415,10 @@ test("repeated answer rejection has a fixed budget and reports failure instead o
     validations++;
     return { report: { ...report, summary: [] }, warnings: ['未支持的数字'] };
   };
-  const result = await runAnalysisGraph(input, deps);
+  await assert.rejects(runAnalysisGraph(input, deps), { code: "INVALID_REPORT" });
   assert.equal(validations, 2);
   assert.equal(calls.filter(call => call === 'generate').length, 2);
-  assert.match(result.report.summary[0].text, /未能完成.*请重新分析/);
-  assert.doesNotMatch(result.report.summary[0].text, /我更倾向于|评价标准|人来承担/);
-  assert.equal(result.coverage?.citedSourceCount, 5);
+  assert.ok(!calls.includes("social"));
 });
 
 test("cancellation during answer recovery stops before social generation", async () => {
@@ -447,6 +444,7 @@ test("a removed opening is recovered once even when valid detailed points surviv
     return { draft: { title: "研究", cards: [], limitations: [], summary: [
       { presentation: "lead", text: generated === 1 ? "初级岗位减少99%。" : "部分任务可能变化，不能将任务效率直接等同于整体就业。", references: refs },
       { presentation: "bullet", label: "适用边界", text: "研究结果有适用边界。", references: refs },
+      { presentation: "conclusion", text: "需结合研究范围判断影响。", references: refs },
     ] }, modelCalls: 1, totalTokens: 10, warnings: [] };
   };
   const result = await runAnalysisGraph(input, deps);
@@ -457,7 +455,7 @@ test("a removed opening is recovered once even when valid detailed points surviv
   assert.doesNotMatch(result.report.summary[0].text, /99/);
 });
 
-test("failed opening recovery preserves valid details and cannot bold the first surviving bullet", async () => {
+test("failed opening recovery cannot publish the surviving partial details as a complete report", async () => {
   const { deps } = fixture();
   deps.validateReport = analysisDependencies.validateReport;
   let generated = 0;
@@ -469,10 +467,72 @@ test("failed opening recovery preserves valid details and cannot bold the first 
       { presentation: "bullet", label: "适用边界", text: "研究结果有适用边界。", references: refs },
     ] }, modelCalls: 1, totalTokens: 10, warnings: [] };
   };
-  const result = await runAnalysisGraph(input, deps);
+  await assert.rejects(runAnalysisGraph(input, deps), { code: "INVALID_REPORT" });
   assert.equal(generated, 2);
-  assert.match(result.report.answerBlocks?.[0].text ?? "", /未能生成简短总结/);
-  assert.equal(result.report.answerBlocks?.[1].presentation, "bullet");
-  assert.equal(result.report.summary[0].text, "适用边界：研究结果有适用边界。");
-  assert.ok(result.warnings.includes("opening-recovery-failed"));
+});
+
+test("lead-only output retries once and publishes only the complete replacement", async () => {
+  const { deps } = fixture();
+  let attempts = 0;
+  const events: AnalysisEvent[] = [];
+  deps.generateReport = async (_idea, articles, _signal, _observe, options) => {
+    assert.deepEqual(articles, sources);
+    assert.equal(attempts ? options?.answerOnly : options?.singleAttempt, true);
+    const full = structuredClone(draft);
+    return { draft: ++attempts === 1 ? { ...full, summary: full.summary.slice(0, 1) } : full,
+      modelCalls: 1, totalTokens: 10, warnings: [] };
+  };
+  const result = await runAnalysisGraph({ ...input, onEvent: async event => { events.push(event); } }, deps);
+  assert.equal(attempts, 2);
+  assert.deepEqual(result.report.answerBlocks?.map(block => block.presentation), ["lead", "bullet", "conclusion"]);
+  assert.equal(events.filter(event => event.type === "report").length, 1);
+  assert.equal(result.diagnostics.modelCalls, 3);
+  assert.equal(result.diagnostics.totalTokens, 25);
+});
+
+test("losing one detailed point retries even when lead, another bullet and conclusion survive", async () => {
+  const { deps } = fixture();
+  const full = { ...structuredClone(draft), summary: [draft.summary[0], draft.summary[1],
+    { ...draft.summary[1], label: "另一要点", text: "其他研究也有适用条件。" }, draft.summary[2]] };
+  let generations = 0, validations = 0;
+  deps.generateReport = async () => { generations++; return { draft: structuredClone(full), modelCalls: 1, totalTokens: 10, warnings: [] }; };
+  deps.validateReport = report => ({ report: ++validations === 1
+    ? { ...report, summary: report.summary.filter((_item, index) => index !== 2) } : report, warnings: [] });
+  const result = await runAnalysisGraph(input, deps);
+  assert.equal(generations, 2);
+  assert.equal(result.report.answerBlocks?.length, 4);
+});
+
+test("production report retries malformed or failed requests at most once across service and workflow", async () => {
+  const savedFetch = globalThis.fetch, savedKey = process.env.QWEN_API_KEY;
+  process.env.QWEN_API_KEY = "test-only";
+  const full = { ...draft, summary: draft.summary.map(block => ({ ...block,
+    references: [{ sourceId: "S1", evidenceId: "S1-E1" }] })) };
+  try {
+    for (const failure of ["lead-only", "invalid-json", "connection", "persistent"]) {
+      let requests = 0;
+      const { deps, calls } = fixture();
+      deps.generateReport = analysisDependencies.generateReport;
+      deps.validateReport = analysisDependencies.validateReport;
+      globalThis.fetch = async () => {
+        requests++;
+        if (failure === "connection" && requests === 1) throw new TypeError("network");
+        return Response.json({ output_text: requests === 1 || failure === "persistent"
+          ? failure === "lead-only" ? JSON.stringify({ ...full, summary: full.summary.slice(0, 1) }) : "invalid JSON"
+          : JSON.stringify(full), usage: { total_tokens: 10 } });
+      };
+      if (failure === "persistent") {
+        await assert.rejects(runAnalysisGraph(input, deps), { code: "INVALID_REPORT" });
+        assert.ok(!calls.includes("social"));
+      } else {
+        const result = await runAnalysisGraph(input, deps);
+        assert.equal(result.report.answerBlocks?.length, 3);
+        assert.equal(result.diagnostics.totalTokens, failure === "connection" ? 15 : 25);
+      }
+      assert.equal(requests, 2);
+    }
+  } finally {
+    globalThis.fetch = savedFetch;
+    if (savedKey === undefined) delete process.env.QWEN_API_KEY; else process.env.QWEN_API_KEY = savedKey;
+  }
 });

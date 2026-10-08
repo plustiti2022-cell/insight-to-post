@@ -44,7 +44,11 @@ test("question becomes semantic search keywords; one useful article is enough an
   }, async () => {
     const result = await runAnalysisGraph({ idea, socialTargetLength: 2000 }, {
       ...analysisDependencies,
-      generateReport: async () => ({ draft: { title: idea, summary: [{ presentation: "lead", text: "部分初级岗位的招聘需求可能变化。", references: [{ sourceId: "S1", quote: body }] }], cards: [], limitations: [] }, modelCalls: 1, totalTokens: 5, warnings: [] }),
+      generateReport: async () => ({ draft: { title: idea, summary: [
+        { presentation: "lead", text: "部分初级岗位的招聘需求可能变化。", references: [{ sourceId: "S1", quote: body }] },
+        { presentation: "bullet", label: "研究范围", text: "招聘研究有适用边界。", references: [{ sourceId: "S1", quote: body }] },
+        { presentation: "conclusion", text: "应在研究范围内理解变化。", references: [{ sourceId: "S1", quote: body }] },
+      ], cards: [], limitations: [] }, modelCalls: 1, totalTokens: 5, warnings: [] }),
       generateSocialContent: async (report, sources) => ({ socialContent: reportBasedSocial(report, sources, 2000), modelCalls: 0, totalTokens: 0, durationMs: 0 }),
       signSocialSnapshot: () => "test-token",
     });
@@ -94,9 +98,10 @@ test("all missing bodies are extracted in batches and search summaries never rea
     return model({ followUpQuery: null });
   }, async () => {
     const result = await researchWithTavily(idea);
-    assert.deepEqual(batches.map((batch) => batch.length), [20, 5]);
-    assert.equal(result.extractorCalls, 2);
-    assert.equal(result.sources.filter((source) => source.extractionStatus === "available").length, 23);
+    assert.deepEqual(batches.map((batch) => batch.length), [20, 5, 2]);
+    assert.equal(result.extractorCalls, 3);
+    assert.deepEqual(batches[2], [batches[0].at(-1), batches[1].at(-1)]);
+    assert.equal(result.sources.filter((source) => source.extractionStatus === "available").length, 24);
     assert.ok(result.sources.filter((source) => source.extractionStatus === "failed").every((source) => source.extractedContent === ""));
   });
 });
@@ -173,6 +178,40 @@ test("cancellation during planning, extraction or coverage review always escapes
       return model({ query });
     }, async () => {
       await assert.rejects(researchWithTavily(idea, controller.signal), (error: unknown) => error instanceof Error && (("code" in error && error.code === "CANCELLED") || error.name === "AbortError"));
+    });
+  }
+});
+
+test("failed extraction retries only missing articles and includes recovered content and credits", async () => {
+  const batches: string[][] = [];
+  await mocked(async (_url, init) => {
+    const input = JSON.parse(String(init?.body));
+    batches.push(input.urls);
+    return Response.json({ results: [{ url: input.urls[0], raw_content: body }], usage: { credits: 1 } });
+  }, async () => {
+    const result = await researchWithTavily("比较 https://example.org/a 和 https://example.org/b");
+    assert.deepEqual(batches, [["https://example.org/a", "https://example.org/b"], ["https://example.org/b"]]);
+    assert.ok(result.sources.every(source => source.extractionStatus === "available"));
+    assert.equal(result.extractorCalls, 2);
+    assert.equal(result.credits, 2);
+    assert.deepEqual(result.warnings, []);
+  });
+});
+
+test("an extraction request failure or unusable page gets one retry, with persistent failures remaining excluded", async () => {
+  for (const outcome of ["connection", "unusable", "persistent"]) {
+    let calls = 0;
+    await mocked(async (_url, init) => {
+      calls++;
+      if (outcome === "connection" && calls === 1) throw new TypeError("network");
+      const input = JSON.parse(String(init?.body));
+      return Response.json({ results: [{ url: input.urls[0], raw_content: calls === 2 && outcome !== "persistent" ? body : "Access denied" }] });
+    }, async () => {
+      const result = await researchWithTavily("阅读 https://example.org/a");
+      assert.equal(calls, 2);
+      assert.equal(result.sources[0].extractionStatus, outcome === "persistent" ? "unusable" : "available");
+      assert.equal(result.sources[0].extractedContent, outcome === "persistent" ? "" : body.trim());
+      assert.deepEqual(result.warnings, []);
     });
   }
 });

@@ -139,38 +139,44 @@ export async function researchWithTavily(
         return research;
       }
     }
-    const missing = research.sources
-      .filter((s) => s.extractionStatus !== "available");
-    // Extract 每批最多 20 个 URL；不再只补取前 8 篇。
-    for (let offset = 0; offset < missing.length; offset += 20) {
-      const batch = missing.slice(offset, offset + 20);
-      research.extractorCalls++;
-      try {
-        logger.info("extract.started", { batch: research.extractorCalls, urlCount: batch.length });
-        const extracted = await extractTavily(
-          batch.map((s) => s.url),
-          signal,
-        );
-        research.credits += extracted.usage?.credits ?? 0;
-        for (const source of batch) {
-          const item = extracted.results.find(
-            (item) => canonicalUrl(item.url) === source.url,
+    // 只对未取得可用正文的 URL 重试一次，成功文章不重复请求。
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const missing = research.sources.filter((s) => s.extractionStatus !== "available");
+      // Extract 每批最多 20 个 URL。
+      for (let offset = 0; offset < missing.length; offset += 20) {
+        const batch = missing.slice(offset, offset + 20);
+        signal?.throwIfAborted();
+        research.extractorCalls++;
+        try {
+          logger.info("extract.started", { attempt, batch: research.extractorCalls, urlCount: batch.length });
+          const extracted = await extractTavily(
+            batch.map((s) => s.url),
+            signal,
           );
-          applyContent(source, item?.raw_content, "extract_raw_content");
-          if (!item && source.extractionStatus !== "available")
-            source.extractionReason = "Tavily Extract 未成功返回该 URL 的正文。";
+          research.credits += extracted.usage?.credits ?? 0;
+          for (const source of batch) {
+            const item = extracted.results.find(
+              (item) => canonicalUrl(item.url) === source.url,
+            );
+            applyContent(source, item?.raw_content, "extract_raw_content");
+            if (!item && source.extractionStatus !== "available")
+              source.extractionReason = attempt === 2
+                ? "Tavily Extract 重试后仍未返回该 URL 的正文。"
+                : "Tavily Extract 未成功返回该 URL 的正文，准备重试。";
+          }
+          logger.info("extract.completed", { attempt, batch: research.extractorCalls, availableCount: batch.filter((source) => source.extractionStatus === "available").length });
+        } catch (error) {
+          rethrowCancellation(error, signal);
+          logger.warn("extract.failed", { attempt, batch: research.extractorCalls, ...failureDetails(error) });
+          if (attempt === 2) research.warnings.push(
+            error instanceof AnalysisError ? error.message : "补充正文提取重试后仍失败。",
+          );
+          for (const source of batch)
+            if (source.extractionStatus !== "available")
+              source.extractionReason = attempt === 2
+                ? "Tavily Extract 请求在重试后仍失败；不使用搜索摘要代替正文。"
+                : "Tavily Extract 请求失败，准备重试；不使用搜索摘要代替正文。";
         }
-        logger.info("extract.completed", { batch: research.extractorCalls, availableCount: batch.filter((source) => source.extractionStatus === "available").length });
-      } catch (error) {
-        rethrowCancellation(error, signal);
-        logger.warn("extract.fallback", { batch: research.extractorCalls, ...failureDetails(error) });
-        research.warnings.push(
-          error instanceof AnalysisError ? error.message : "补充正文提取失败。",
-        );
-        for (const source of batch)
-          if (source.extractionStatus !== "available")
-            source.extractionReason =
-              "已调用 Tavily Extract，但请求失败；不使用搜索摘要代替正文。";
       }
     }
     const available = research.sources.filter((source) => source.extractionStatus === "available");

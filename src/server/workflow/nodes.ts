@@ -4,7 +4,7 @@ import {
   countCoverage,
   eligibleForGeneration,
 } from "../../core/sources";
-import { completeReport, hasOpeningSummary } from "../../core/report";
+import { completeReport, answerStructureIssues } from "../../core/report";
 import { emptyDraft, type Node, type NodeId } from "./state";
 const logger = createLogger("workflow.nodes");
 
@@ -19,11 +19,13 @@ function reportNode(node: Node, attemptedCalls = 0): Node {
       };
     } catch (error) {
       rethrowCancellation(error, context.signal);
-      logger.warn("report.fallback", failureDetails(error));
+      logger.warn("report.retryRequired", failureDetails(error));
       return {
-        modelCalls: counted.modelCalls,
+        modelCalls: state.modelCalls + (error instanceof AnalysisError ? error.modelUsage?.modelCalls ?? attemptedCalls : attemptedCalls),
+        totalTokens: state.totalTokens + (error instanceof AnalysisError ? error.modelUsage?.totalTokens ?? 0 : 0),
         draft: emptyDraft(context.idea),
         reportFailed: true,
+        answerFeedback: [error instanceof Error ? error.message : "回答生成或校验失败。"],
         warnings: [
           ...state.warnings,
           error instanceof Error
@@ -108,7 +110,7 @@ export const nodes: Record<NodeId, Node> = {
       ).length;
       if (count)
         warnings.push(
-          `${count} 个来源${label}，不用于本次报告的事实或量化指标。`,
+          `${count} 篇文章${label === "提取失败" ? "经 Tavily 正文提取重试后仍失败" : label}，未纳入事实或数字依据；报告使用其余已取得正文的文章。`,
         );
     }
     return { warnings };
@@ -119,6 +121,7 @@ export const nodes: Record<NodeId, Node> = {
       eligibleForGeneration(state.research),
       signal,
       observe,
+      { singleAttempt: true },
     );
     await observe?.("draft-0", generated.draft);
     return {
@@ -133,14 +136,17 @@ export const nodes: Record<NodeId, Node> = {
       state.draft,
       eligibleForGeneration(state.research),
     );
+    const lostBlocks = validated.report.summary.length < state.draft.summary.length;
     return {
       draft: validated.report,
-      answerFeedback: validated.warnings,
+      reportFailed: lostBlocks,
+      answerFeedback: [...validated.warnings, ...answerStructureIssues(validated.report.summary),
+        ...(lostBlocks ? ["引用校验移除了回答段落，须重新生成完整回答。"] : [])],
       warnings: [...state.warnings, ...validated.warnings],
     };
   }),
   async recoverAnswer(state, { idea, signal, observe, deps }) {
-    // 校验移除首答时补写一次，即使仍有有效要点；不重新检索、不循环重试。
+    // 生成失败或校验后结构不完整时，复用全部正文重生成一次。
     const sources = eligibleForGeneration(state.research);
     let modelCalls = state.modelCalls;
     let totalTokens = state.totalTokens;
@@ -159,27 +165,36 @@ export const nodes: Record<NodeId, Node> = {
       signal?.throwIfAborted();
       const validated = deps.validateReport({ ...generated.draft, cards: [] }, sources);
       warnings.push(...validated.warnings);
-      if (!hasOpeningSummary(validated.report)) {
+      if (validated.report.summary.length < generated.draft.summary.length ||
+          answerStructureIssues(validated.report.summary).length) {
         logger.warn("answerRecovery.invalid", { warningCount: validated.warnings.length });
         return { modelCalls, totalTokens, warnings };
       }
       return {
         draft: { ...state.draft, summary: validated.report.summary },
+        reportFailed: false,
         modelCalls, totalTokens, warnings,
       };
     } catch (error) {
       rethrowCancellation(error, signal);
-      logger.warn("answerRecovery.fallback", failureDetails(error));
+      logger.warn("answerRecovery.failed", failureDetails(error));
       return {
-        modelCalls, totalTokens,
+        modelCalls: modelCalls + (error instanceof AnalysisError ? (error.modelUsage?.modelCalls ?? 1) - 1 : 0),
+        totalTokens: totalTokens + (error instanceof AnalysisError ? error.modelUsage?.totalTokens ?? 0 : 0),
         warnings: [...warnings, error instanceof Error ? error.message : "回答补写未能完成，请重新分析。"],
       };
     }
   },
   completeReport(state) {
-    return {
-      draft: completeReport(state.draft, eligibleForGeneration(state.research)),
-    };
+    const sources = eligibleForGeneration(state.research);
+    if (!sources.length)
+      throw new AnalysisError("NO_EVIDENCE", "本次未取得可用文章正文，无法完成研究报告。请重新分析或提供可公开访问的文章链接。");
+    if (state.reportFailed || answerStructureIssues(state.draft.summary).length)
+      throw new AnalysisError("INVALID_REPORT", "核心研究内容在自动重试一次后仍未完整生成，请重新分析。");
+    const draft = completeReport(state.draft, sources);
+    if (answerStructureIssues(draft.answerBlocks ?? []).length)
+      throw new AnalysisError("INVALID_REPORT", "核心研究内容在自动重试一次后仍未完整生成，请重新分析。");
+    return { draft };
   },
   async social(state, { signal, observe, socialTargetLength, deps }) {
     const social = await deps.generateSocialContent(
