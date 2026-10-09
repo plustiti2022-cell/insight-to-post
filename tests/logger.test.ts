@@ -103,8 +103,10 @@ test("production services log all visited nodes, recovery, social replay and ima
     assert.ok(entries.every((entry) => entry.runId === analysisId));
     for (const scope of ["research", "report", "social"])
       assert.ok(entries.some((entry) => entry.scope === scope && String(entry.event).endsWith("completed")));
+    assert.ok(entries.some(entry => entry.scope === "social" && entry.event === "content.decoded" && entry.validation === false));
+    assert.ok(!entries.some(entry => entry.scope === "social" && /validation|fallback/.test(String(entry.event))));
     const replayStart = entries.length;
-    const replay = await generateSocialContent(result.report, replaySources, undefined, undefined, 2000, { originalPrompt: "你是中文社交媒体作者 PRIVATE_ORIGINAL_PROMPT", fallback: "fail" });
+    const replay = await generateSocialContent(result.report, replaySources, undefined, undefined, 2000, { originalPrompt: "你是中文社交媒体作者 PRIVATE_ORIGINAL_PROMPT" });
     assert.equal(replay.socialContent.status, "ready");
     assert.notEqual(entries[replayStart].runId, analysisId);
     assert.equal(entries[replayStart].replay, true);

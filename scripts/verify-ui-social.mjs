@@ -9,7 +9,8 @@ await mkdir('.local',{recursive:true});
 const browser=await chromium.launch();const errors=[];
 try {
   const context=await browser.newContext({...devices['iPhone 13']});
-  await context.route('**/api/social-image',route=>route.fulfill({status:503,json:{error:{message:'配图测试使用模拟响应。'}}}));
+  let imageRequests=0;
+  await context.route('**/api/social-image',route=>{imageRequests++;return route.fulfill({status:503,json:{error:{message:'配图测试使用模拟响应。'}}});});
   await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:base});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/api/analyze',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(fixture)}));
@@ -129,6 +130,30 @@ try {
   await page.getByText('分析已取消。问题已保留，可以再次开始。').waitFor();
   assert.equal(await page.getByRole('textbox',{name:'研究问题'}).inputValue(),'取消过程中输入的全新问题');
   assert.equal(await page.getByTestId('social-text').count(),0,'cancelled analysis must not display old social content');
+  // Initial writing failure preserves the brief, never fills the copy panel with its text.
+  await page.unroute('**/api/analyze');
+  await page.unroute('**/api/social-content');
+  const failedCopy={...fixture,status:'partial',socialContent:{...fixture.socialContent,status:'failed',text:'',warnings:['文案生成未完成或无法解析，请重新生成文案。研究简报已保留。']}};
+  await page.route('**/api/analyze',route=>route.fulfill({json:failedCopy}));
+  const imagesBeforeFailure=imageRequests;
+  await page.getByRole('textbox',{name:'研究问题'}).fill('写作失败时不能把简报复制成文案');
+  await page.getByRole('button',{name:'开始分析'}).click();
+  await page.getByText(failedCopy.socialContent.warnings[0],{exact:true}).waitFor();
+  assert.equal(await page.getByTestId('social-text').count(),0);
+  assert.equal(await page.getByRole('button',{name:'一键复制',exact:true}).isDisabled(),true);
+  assert.equal(await page.getByRole('button',{name:'重新生成文案'}).isEnabled(),true);
+  assert.equal((await page.locator('.summary-box').innerText()).trim(),answer);
+  assert.equal(imageRequests,imagesBeforeFailure,'writing failure cannot start images for copied research text');
+  await page.locator('.social-panel').screenshot({path:'.local/social-initial-failure.png'});
+  const rewritten='新的写作视角：学会判断，可能比写得更快更重要。\n\n团队会怎样培养这种能力？';
+  await page.route('**/api/social-content',route=>route.fulfill({json:{socialContent:{...fixture.socialContent,text:rewritten,claimReferences:[]}}}));
+  await page.getByRole('button',{name:'重新生成文案'}).click();
+  await page.getByTestId('social-text').filter({hasText:rewritten}).waitFor();
+  assert.equal(await page.getByTestId('social-text').innerText(),rewritten);
+  assert.notEqual(await page.getByTestId('social-text').innerText(),answer);
+  assert.equal((await page.locator('.summary-box').innerText()).trim(),answer);
+  await page.getByRole('alert').filter({hasText:'配图测试使用模拟响应。'}).waitFor();
+  assert.equal(imageRequests,imagesBeforeFailure+1);
   await context.close();
   // An actual LAN HTTP origin is not a secure clipboard context; exercise its manual path.
   if(process.env.TEST_HTTP_BASE_URL){
@@ -146,5 +171,5 @@ try {
     await lan.close();
   }
   assert.deepEqual(errors,[]);
-  console.log('Social UI passed: clipboard/manual copy of selected versions, retained history during pending/failed regeneration, three versions, arrows/keyboard/swipe, 390/320px, history reset and stale responses blocked'+(process.env.TEST_HTTP_BASE_URL?', actual LAN HTTP manual selection.':'.'));
+  console.log('Social UI passed: clipboard/manual copy of selected versions, retained history during pending/failed regeneration, three versions, arrows/keyboard/swipe, 390/320px, history reset, initial failure preserves brief without copied fallback or images, manual rewrite and stale responses blocked'+(process.env.TEST_HTTP_BASE_URL?', actual LAN HTTP manual selection.':'.'));
 } finally {await browser.close();}

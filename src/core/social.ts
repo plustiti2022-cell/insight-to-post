@@ -213,21 +213,20 @@ export function validateSocialDraft(
     problems,
   };
 }
-export function reportBasedSocial(
+// 只解码可显示文字；不做事实、数字、引用、段数或长度审批。
+export function readSocialForDisplay(
+  raw: unknown,
   report: Draft,
   sources: Source[],
   limit: number,
-  reason = "",
 ): SocialContent {
-  const completed = includeEveryArticle(report, sources);
-  const claims = [...completed.summary];
-  const answer = claims[0].text;
-  const sentences = answer.match(/[^。！？]+[。！？]?/g) ?? [answer];
-  const paragraphs =
-    sentences.length >= 3
-      ? [sentences[0], sentences.slice(1, -1).join(""), sentences.at(-1)!]
-      : sentences;
+  const parsed = z.object({ paragraphs: z.array(z.object({ text: z.string() })) }).parse(raw);
+  const paragraphs = parsed.paragraphs.map(item => normalizeSocialText(item.text)).filter(Boolean);
+  if (!paragraphs.length) throw new Error("模型未返回可显示的社交文案。");
   const text = paragraphs.join("\n\n");
+  // 依据仅在后台沿用研究简报及全部已提取文章，不要求写作模型输出引用编号。
+  const completed = includeEveryArticle(report, sources, false);
+  const claims = [...completed.summary];
   const records = evidenceRegistry(sources);
   const references = claims.flatMap((claim) =>
     claim.references.map((ref) => ({
@@ -256,7 +255,6 @@ export function reportBasedSocial(
       references.map((ref) => ref.sourceId),
     ),
     warnings: [
-      ...(reason ? ["本次文案直接整理自综合观点，依据保留在引用层。"] : []),
       ...(weightedLength > limit
         ? ["文案超过所选长度；未截断。请使用长帖或复制后自行调整。"]
         : []),

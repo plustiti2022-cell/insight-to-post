@@ -6,7 +6,7 @@ import {
   type AnalysisDependencies,
 } from "../src/server/workflow/run";
 import { AnalysisError } from "../src/server/runtime";
-import { reportBasedSocial } from "../src/core/social";
+import { readSocialForDisplay } from "../src/core/social";
 import type { Source, Draft } from "../src/core/contracts";
 import type { AnalysisEvent } from "../src/core/contracts";
 import { nodes } from "../src/server/workflow/nodes";
@@ -79,7 +79,7 @@ function fixture() {
     ) => {
       calls.push("social");
       return {
-        socialContent: reportBasedSocial(report, articles, limit ?? 280),
+        socialContent: readSocialForDisplay({ paragraphs: [{ text: "模拟模型改写后的社交文案。" }] }, report, articles, limit ?? 280),
         modelCalls: 1,
         totalTokens: 5,
         durationMs: 9,

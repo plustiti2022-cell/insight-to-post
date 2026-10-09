@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateReport } from "../src/server/services/report";
 import { includeEveryArticle, hasOpeningSummary, answerStructureIssues } from "../src/core/report";
-import { reportBasedSocial } from "../src/core/social";
+import { readSocialForDisplay } from "../src/core/social";
 import { statementSchema, type Source } from "../src/core/contracts";
 import { demo } from "../src/client/demo";
 import { validateReport } from "../src/core/evidence";
@@ -97,7 +97,7 @@ test("completion preserves the actual answer and paragraphs without rewriting at
   assert.ok(!("kind" in statement), "legacy classification is discarded");
   const completed = includeEveryArticle({ title: "研究", summary: [statement], cards: [], limitations: [] }, [source]);
   assert.equal(completed.summary[0].text, text);
-  const social = reportBasedSocial(completed, [source], 2000);
+  const social = readSocialForDisplay({ paragraphs: [{ text: "模拟模型改写后的社交文案。" }] }, completed, [source], 2000);
   assert.doesNotMatch(social.text, /比起急着下结论|判断与选择/);
 });
 
@@ -120,7 +120,7 @@ test("paragraph references survive completion while unused articles only join so
   assert.equal(completed.summary[0].text, "部分岗位需求可能变化。\n\n岗位转型：需要区分任务效率与就业变化。");
   assert.deepEqual(completed.summary[0].references.map((ref) => ref.sourceId), ["S1", "S2", "S3"]);
   assert.equal(completed.summary[0].claimId, "summary-1");
-  assert.equal(reportBasedSocial(completed, [source, second, unused], 2000).coverage.citedSourceCount, 3);
+  assert.equal(readSocialForDisplay({ paragraphs: [{ text: "模拟模型改写后的社交文案。" }] }, completed, [source, second, unused], 2000).coverage.citedSourceCount, 3);
 });
 
 test("unsupported numbers in a bold point label cannot bypass evidence validation", () => {

@@ -12,7 +12,7 @@ import { generateReport } from '../src/server/services/report';
 import { evidenceRegistry } from '../src/core/evidence';
 import type { Draft, Source } from '../src/core/contracts';
 import { includeEveryArticle } from '../src/core/report';
-import { reportBasedSocial } from '../src/core/social';
+import { readSocialForDisplay } from '../src/core/social';
 import { eligibleForGeneration } from '../src/core/sources';
 
 const facts = ['A controlled trial measured coding task completion under fixed experimental conditions.', 'The research group tested model training procedures and reported boundaries of the evaluation.', 'Researchers explored architecture optimization with human review of the proposed candidates.', 'The institutional report discussed deployment monitoring and the need for repeated validation.', 'A separate institutional report described human decisions about objectives and constraints.'];
@@ -119,13 +119,13 @@ test('X limit uses weighted length for Chinese and rejects overlong text without
   const checked=validateSocialDraft({...socialRaw,paragraphs:[{text:'中文'.repeat(100),claimIds:[]},...socialRaw.paragraphs.slice(1)]},report,sources);
   assert.ok(checked.problems.some(p=>p.includes('加权长度')));assert.equal(checked.content.text.startsWith('中文'.repeat(100)),true);
 });
-test('locally rejected model copy uses report-based text with all citations after one correction',async()=>{
+test('social generation keeps model copy without local content validation or correction',async()=>{
   const undo=restore(['QWEN_API_KEY']);const original=globalThis.fetch;process.env.QWEN_API_KEY='test-only';let calls=0;
   const candidate={...socialRaw,paragraphs:socialRaw.paragraphs.map((p,i)=>i===0?{...p,text:'新增999个未经支持的结果。'}:p)};
   globalThis.fetch=async(_url,init)=>{calls++;const body=JSON.parse(String(init?.body));assert.equal(body.tools,undefined);assert.ok(body.input.startsWith('你是中文社交媒体作者'));if(calls===2)assert.match(body.input,/上次问题：.*未支持的数字/);return Response.json({status:'completed',output_text:JSON.stringify(candidate)});};
-  try {const result=await generateSocialContent(report,sources);assert.equal(calls,2);assert.equal(result.modelCalls,2);assert.equal(result.socialContent.status,'ready');assert.equal(result.socialContent.text,reportBasedSocial(report,sources,280,'').text);assert.equal(result.socialContent.coverage.citedSourceCount,5);}finally{globalThis.fetch=original;undo();}
+  try {const result=await generateSocialContent(report,sources);assert.equal(calls,1);assert.equal(result.modelCalls,1);assert.equal(result.socialContent.status,'ready');assert.equal(result.socialContent.text,candidate.paragraphs.map(p=>p.text).join('\n\n'));assert.equal(result.socialContent.coverage.citedSourceCount,5);}finally{globalThis.fetch=original;undo();}
 });
-test('a locally corrected social draft returns immediately and counts only generation usage',async()=>{
+test('unreadable social output fails after one call while retaining known usage',async()=>{
   const undo=restore(['QWEN_API_KEY']);const original=globalThis.fetch;process.env.QWEN_API_KEY='test-only';let calls=0;
   const stages:string[]=[];
   globalThis.fetch=async(_url,init)=>{
@@ -134,7 +134,7 @@ test('a locally corrected social draft returns immediately and counts only gener
     if(calls===2)assert.match(input,/上次问题：JSON格式错误/);
     return Response.json({status:'completed',output_text:calls===1?'invalid JSON':JSON.stringify(socialRaw),usage:{total_tokens:calls*10}});
   };
-  try{const result=await generateSocialContent(report,sources,undefined,async stage=>{stages.push(stage);});assert.equal(calls,2);assert.equal(result.modelCalls,2);assert.equal(result.totalTokens,30);assert.deepEqual(stages,['social-draft-0','social-draft-1']);assert.equal(result.socialContent.text,socialRaw.paragraphs.map(p=>p.text).join('\n\n'));assert.deepEqual(result.socialContent.warnings,[]);}finally{globalThis.fetch=original;undo();}
+  try{const result=await generateSocialContent(report,sources,undefined,async stage=>{stages.push(stage);});assert.equal(calls,1);assert.equal(result.modelCalls,1);assert.equal(result.totalTokens,10);assert.deepEqual(stages,['social-draft-0']);assert.equal(result.socialContent.status,'failed');assert.equal(result.socialContent.text,'');assert.match(result.socialContent.warnings[0],/重新生成文案/);}finally{globalThis.fetch=original;undo();}
 });
 test('signed social retry rejects client changes and a report missing extracted articles',()=>{
   const undo=restore(['QWEN_API_KEY']);process.env.QWEN_API_KEY='test-only';
@@ -184,7 +184,7 @@ test('Tavily timeout is bounded and does not turn a missing body into evidence',
   globalThis.fetch=async(_url,init)=>new Promise((_resolve,reject)=>{const keeper=setTimeout(()=>reject(new Error('timer')),2000);init?.signal?.addEventListener('abort',()=>{clearTimeout(keeper);reject(new DOMException('timed out','TimeoutError'));},{once:true});});
   try{await assert.rejects(callTavily('extract',{urls:['https://example.org']}),(e:unknown)=>e instanceof Error&&e.message.includes('超时'));}finally{globalThis.fetch=original;undo();}
 });
-test('a failed social model call produces report-based copy and preserves the retry snapshot',async()=>{
+test('a failed social model call preserves the report and retry snapshot without copying the report',async()=>{
   const undo=restore(['QWEN_API_KEY','TAVILY_API_KEY']);const original=globalThis.fetch;process.env.QWEN_API_KEY='test-only';process.env.TAVILY_API_KEY='test-only';let searches=0;
   const rawReport={title:'test',cards:[],limitations:[],summary:[{presentation:'lead',text:'有边界的实验研究。',references:sources.slice(0,3).map(s=>({sourceId:s.id,evidenceId:`${s.id}-E1`}))},{presentation:'bullet',label:'人的职责',text:'研究仍需要人的目标与判断。',references:sources.slice(3).map(s=>({sourceId:s.id,evidenceId:`${s.id}-E1`}))}]};
   rawReport.summary.push({presentation:'conclusion',text:'理解实验结果仍需要人的判断。',references:[{sourceId:'S1',evidenceId:'S1-E1'}]});
@@ -196,14 +196,14 @@ test('a failed social model call produces report-based copy and preserves the re
     if(body.input.startsWith('你是检索评估'))return Response.json({output_text:JSON.stringify({followUpQuery:null})});
     return Response.json({status:'completed',output_text:JSON.stringify(rawReport)});
   };
-  try {const r=await analyze('用于失败节点测试的问题');assert.equal(r.coverage?.requirementMet,true);assert.equal(r.report.summary.length,1);assert.equal(r.socialContent?.status,'ready');assert.ok(r.socialRetryToken);assert.equal(searches,1);assert.equal(r.diagnostics.modelCalls,4);assert.equal(readSocialSnapshot(r.socialRetryToken!).report.summary.length,1);}finally{globalThis.fetch=original;undo();}
+  try {const r=await analyze('用于失败节点测试的问题');assert.equal(r.coverage?.requirementMet,true);assert.equal(r.report.summary.length,1);assert.equal(r.socialContent?.status,'failed');assert.equal(r.socialContent?.text,'');assert.ok(r.socialRetryToken);assert.equal(searches,1);assert.equal(r.diagnostics.modelCalls,4);assert.equal(readSocialSnapshot(r.socialRetryToken!).report.summary.length,1);}finally{globalThis.fetch=original;undo();}
 });
 test('all twelve extracted articles, including mirrors, survive selection and appear in both outputs',()=>{
   const articles=Array.from({length:12},(_,i)=>({...sources[i%5],id:`S${i+1}`,url:`https://example.org/article-${i}`}));
   assert.equal(eligibleForGeneration({sources:articles,searchCalls:1,extractorCalls:0,credits:0,warnings:[]}).length,12);
   const completed=includeEveryArticle({title:'test',summary:[],cards:[],limitations:[]},articles);
   assert.equal(completed.summary.length,1);
-  const social=reportBasedSocial(completed,articles,280);
+  const social=readSocialForDisplay({ paragraphs: [{ text: "模拟模型改写后的社交文案。" }] }, completed,articles,280);
   assert.equal(social.status,'ready');assert.equal(social.coverage.citedSourceCount,12);
   assert.equal(new Set(social.claimReferences.map(ref=>ref.sourceId)).size,12);
   assert.ok(!social.text.includes('Distinct research source'));
@@ -213,7 +213,7 @@ test('an article made of short paragraphs still gets evidence and appears in bot
   const article={...sources[0],extractedContent:'A short paragraph.\n\n'.repeat(10)};
   const completed=includeEveryArticle({title:'test',summary:[],cards:[],limitations:[]},[article]);
   assert.equal(completed.summary[0].references[0].sourceId,article.id);
-  assert.equal(reportBasedSocial(completed,[article],2000).coverage.citedSourceCount,1);
+  assert.equal(readSocialForDisplay({ paragraphs: [{ text: "模拟模型改写后的社交文案。" }] }, completed,[article],2000).coverage.citedSourceCount,1);
 });
 test('two articles of one type cannot substitute for a complete answer when Qwen remains unavailable',async()=>{
   const undo=restore(['QWEN_API_KEY','TAVILY_API_KEY']);const original=globalThis.fetch;process.env.QWEN_API_KEY='test-only';process.env.TAVILY_API_KEY='test-only';

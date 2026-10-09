@@ -59,7 +59,7 @@ export function SocialContent({ analysis, isDemo, onSource }: { analysis: Analys
       <div className="social-text" data-testid="social-text">{content.text}</div>
       <div className="social-meta"><span>{content.characterCount} 个字符 · X 加权 {content.weightedLength} / {content.targetLength}</span><span>实际依据 {content.coverage.citedSourceCount} 个来源 · {content.coverage.citedSourceTypes.length} 类</span></div>
       {content.warnings.length>0 && <p className="social-feedback">{content.warnings.join(' ')}</p>}
-      <details className="social-evidence"><summary>查看文案依据</summary>{[...new Set(content.claimReferences.map(ref => ref.paragraphIndex))].map(index => <div key={index}><span>{index<0 ? "综合观点依据" : `第 ${index+1} 段`}</span><Citation references={content.claimReferences.filter(ref => ref.paragraphIndex === index).map(ref => ({ sourceId: ref.sourceId, quote: ref.quote }))} onSource={onSource}/></div>)}</details>
+      <details className="social-evidence"><summary>查看文案依据</summary>{[...new Set(content.claimReferences.map(ref => ref.paragraphIndex))].map(index => <div key={index}><span>{index<0 ? "研究简报依据" : `第 ${index+1} 段`}</span><Citation references={content.claimReferences.filter(ref => ref.paragraphIndex === index).map(ref => ({ sourceId: ref.sourceId, quote: ref.quote }))} onSource={onSource}/></div>)}</details>
     </> : <div className="social-state">{isDemo ? '界面示例为虚构数据，不生成待发布文案。' : (content?.warnings ?? ['本次未生成可用文案。']).join(' ')}</div>}
     </VersionCarousel>
     {retryError && <p className="social-feedback" role="alert">{retryError}</p>}

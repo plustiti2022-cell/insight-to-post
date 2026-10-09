@@ -18,7 +18,7 @@ export const POST = jsonEndpoint(
       signal,
       undefined,
       snapshot.targetLength,
-      { fallback: "fail", originalPrompt: snapshot.prompt },
+      { originalPrompt: snapshot.prompt },
     );
   },
   {

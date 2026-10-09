@@ -5,7 +5,7 @@ import { generateReport } from "../src/server/services/report";
 import { AnalysisError } from "../src/server/runtime";
 import { analyze, analysisDependencies, runAnalysisGraph, type AnalysisDependencies } from "../src/server/workflow/run";
 import { signSocialSnapshot, readSocialSnapshot } from "../src/server/services/snapshot";
-import { reportBasedSocial } from "../src/core/social";
+import { readSocialForDisplay } from "../src/core/social";
 import { completeReport } from "../src/core/report";
 import type { AnswerBlock, AnalysisEvent, Source } from "../src/core/contracts";
 
@@ -49,7 +49,7 @@ function dependencies(): AnalysisDependencies {
   return {
     ...analysisDependencies, streamOpening: async () => {},
     research: async () => ({ sources: [source], searchCalls: 1, extractorCalls: 0, credits: 0, warnings: [] }),
-    generateSocialContent: async (draft, sources) => ({ socialContent: reportBasedSocial(draft, sources, 2000), modelCalls: 0, totalTokens: 0, durationMs: 0 }),
+    generateSocialContent: async (draft, sources) => ({ socialContent: readSocialForDisplay({ paragraphs: [{ text: "模拟模型改写后的社交文案。" }] }, draft, sources, 2000), modelCalls: 0, totalTokens: 0, durationMs: 0 }),
     signSocialSnapshot: () => "mock-snapshot",
   };
 }

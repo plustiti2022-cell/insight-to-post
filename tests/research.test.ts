@@ -4,7 +4,7 @@ import { researchWithTavily } from "../src/server/services/research";
 import { edges } from "../src/server/workflow/edges";
 import { initialState } from "../src/server/workflow/state";
 import { runAnalysisGraph, analysisDependencies } from "../src/server/workflow/run";
-import { reportBasedSocial } from "../src/core/social";
+import { readSocialForDisplay } from "../src/core/social";
 
 const idea = "AI会减少初级岗位吗？";
 const query = "AI entry level jobs employment research evidence";
@@ -49,7 +49,7 @@ test("question becomes semantic search keywords; one useful article is enough an
         { presentation: "bullet", label: "研究范围", text: "招聘研究有适用边界。", references: [{ sourceId: "S1", quote: body }] },
         { presentation: "conclusion", text: "应在研究范围内理解变化。", references: [{ sourceId: "S1", quote: body }] },
       ], cards: [], limitations: [] }, modelCalls: 1, totalTokens: 5, warnings: [] }),
-      generateSocialContent: async (report, sources) => ({ socialContent: reportBasedSocial(report, sources, 2000), modelCalls: 0, totalTokens: 0, durationMs: 0 }),
+      generateSocialContent: async (report, sources) => ({ socialContent: readSocialForDisplay({ paragraphs: [{ text: "模拟模型改写后的社交文案。" }] }, report, sources, 2000), modelCalls: 0, totalTokens: 0, durationMs: 0 }),
       signSocialSnapshot: () => "test-token",
     });
     assert.equal(searches, 1);

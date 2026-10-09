@@ -121,7 +121,7 @@ function publicAnalysis(
   const coverage = reportCoverage(draft, sources);
   return {
     coreValidation: state.validateCoreContent,
-    status: social ? "complete" : "partial",
+    status: social?.socialContent.status === "ready" ? "complete" : "partial",
     report: {
       ...draft,
       title:
