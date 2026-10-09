@@ -91,6 +91,7 @@ test("workflow streams social after confirmed report and JSON analysis keeps its
   globalThis.fetch = async (_url, init) => JSON.parse(String(init?.body)).stream
     ? upstream(JSON.stringify({ paragraphs })) : Response.json({ output_text: JSON.stringify({ paragraphs }) });
   const deps = { ...analysisDependencies, streamOpening: async () => {},
+    generateDataPosters: async () => ({ dataPosters: { status: "complete" as const, items: [] }, modelCalls: 0, totalTokens: 0, durationMs: 0 }),
     research: async () => ({ sources, searchCalls: 0, extractorCalls: 0, credits: 0, warnings: [] }),
     generateReport: async () => ({ draft: report, warnings: [], modelCalls: 0, totalTokens: 0 }),
     signSocialSnapshot: () => "test-token" };

@@ -2,7 +2,7 @@
 
 更新：2026-10-09。本文描述当前实现；历史开发计划和演示资料不定义当前行为。
 
-当前 `codex/social-opening-stream` 从 `main` 创建，延续实验默认 `REPORT_CORE_VALIDATION=false`：公开 `analyze` 跳过核心内容校验与重生成。只有显式配置 `true` 才恢复严格模式。规则与图的独立调用仍默认严格，测试可显式传入 `validateCoreContent:false`。
+当前 `main` 保留开场与社交文案流式展示，并合并自动数据海报；延续实验默认 `REPORT_CORE_VALIDATION=false`：公开 `analyze` 跳过核心内容校验与重生成。只有显式配置 `true` 才恢复严格模式。规则与图的独立调用仍默认严格，测试可显式传入 `validateCoreContent:false`。
 
 社交写作始终只调用一次，当前服务不执行文案内容校验或自动纠错；只读取完整简报作为写作素材，后台解析模型段落文字。已删除复制简报作为成功文案的旧兜底。写作失败时报告仍保留、结果状态为 partial，并返回空的 failed 文案及签名重试入口，不触发配图。
 
@@ -72,11 +72,23 @@ flowchart TD
   validate -->|结构不完整、段落被移除或校验失败| recover
   recover -->|生成、本地校验通过| complete
   recover -->|仍不完整或失败| failure
-  complete --> social[生成文案]
-  social --> finish[返回报告、文案与诊断]
+  complete --> parallel[并行启动子流程]
+  parallel --> social[生成文案并立即发布]
+  parallel --> extractData[Flash 提取数据 JSON]
+  extractData --> posters[Max 每条生成 SVG 并逐张发布]
+  social --> finish[等待两条分支结束，返回完整结果]
+  posters --> finish
 ```
 
 节点是具名函数，不代表必须有一个同名文件。当前九个节点集中在 `nodes.ts`，无逐节点包装文件。外部协议、较长的纯算法和服务仍按职责独立。节点返回局部更新，执行器统一合并；输入状态不原地改写。补搜服务使用研究副本，失败仍可保留本次副本取得的资料。
+
+`social` 节点在完整报告确认后通过能力契约并行运行文案与数据海报，使用 `Promise.allSettled` 等待在途分支退出，再一次性返回独立结果与合计用量。文案结束即发 `social` 事件及同一签名重生成 token，海报状态通过 `data-posters` 事件发布快照。`run.ts` 是 `generateDataPosters` 的唯一服务组装点。服务只接收完成报告的 `summary[0].text`、取消信号、状态回调与可选提示词 1，不引用工作流。
+
+并行文案分支继续发 `social-start` / `social-block`，结束时通过 `social` 确认最终文案，而不等海报完成。浏览器收到文案确认后保留尚未播完的逐字队列，失败则立即撤掉文案预览、显示文案错误。文案自身的等待状态与整个研究请求的等待状态分开，海报仍在生成时不会把已失败的文案继续显示为生成中。
+
+`services/data-posters.ts` 先固定调用一次 `qwen3.8-flash`，经 JSON 解码及 `core/data-posters.ts:readDataObservations` 返回包含数字的去重文案数组，再以最多两个并发 worker 覆盖全部条目。每条固定调用一次 `qwen3.8-max`，集中提示词 2 保持用户原文，只填入该条文案。无条目数量上限、自动重试、纠错或失败兜底；提取失败是整个海报分支的明确错误，SVG / 单次模型失败只标记该条。两个分支共享请求取消，取消不标记为业务失败、不启动排队请求、不发布迟到状态。图片用量纳入主诊断，单独保留海报耗时。
+
+`core/data-posters.ts:readStaticPosterSvg` 检查完整静态 SVG 的标签、属性、XML 闭合、固定画布和不透明背景，拒绝执行能力与远程资源。必要时只补入 SVG 图片命名空间，不重画或替换模型内容。`components/data-posters.tsx` 再检查展示边界，用 `img` 的 SVG data URL 隔离展示并提供 SVG 下载、原始代码、提取 JSON 与逐条错误。取消后保留已完成海报并显示中断；换问题通过既有请求身份清除旧状态。未调用图像生成供应商，也没有新增图片 API。固定提示词只是内容要求，程序不声称核验了视觉表达或数据含义。
 
 状态只保留跨步骤需要的原始研究、草稿、失败标志、警告和用量；可用来源、覆盖和最终响应在需要时计算。环境配置、取消信号、观察回调和服务对象放在执行上下文中，不作为业务状态存储。每次运行创建独立状态，服务接口可由测试替换。
 

@@ -12,6 +12,7 @@ import { generateSocialContent } from "../services/social";
 import { signSocialSnapshot } from "../services/snapshot";
 import { generateSocialImage } from "../services/image";
 import { streamOpening } from "../services/opening";
+import { generateDataPosters } from "../services/data-posters";
 import type { Observer } from "../runtime";
 import { createLogger } from "../logger";
 import { edges, START, END } from "./edges";
@@ -26,6 +27,7 @@ import {
 
 // 唯一组装点：新增供应商只需要替换能力实现，不改节点和边。
 export const analysisDependencies: AnalysisDependencies = {
+  generateDataPosters,
   streamOpening,
   research: researchWithTavily,
   generateReport,
@@ -90,7 +92,7 @@ export async function runAnalysisGraph(
         if (node === "completeReport") {
           await input.onEvent?.({
             type: "report",
-            analysis: publicAnalysis(state, input, context.start, generatedAt, deps),
+            analysis: publicAnalysis(state, input, context.start, generatedAt),
           });
           input.signal?.throwIfAborted();
         }
@@ -105,7 +107,7 @@ export async function runAnalysisGraph(
       }, input.signal);
     }
     if (!state.social) throw new Error("Workflow ended without social content");
-    return publicAnalysis(state, input, context.start, generatedAt, deps);
+    return publicAnalysis(state, input, context.start, generatedAt);
   }, input.signal);
 }
 
@@ -114,14 +116,14 @@ function publicAnalysis(
   input: AnalysisInput,
   start: number,
   generatedAt: string,
-  deps: AnalysisDependencies,
 ): Analysis {
   const { draft, research, social } = state;
   const sources = eligibleForGeneration(research);
   const coverage = reportCoverage(draft, sources);
   return {
     coreValidation: state.validateCoreContent,
-    status: social?.socialContent.status === "ready" ? "complete" : "partial",
+    status: social?.socialContent.status === "ready" && state.posters?.dataPosters.status !== "failed"
+      && !state.posters?.dataPosters.items.some(item => item.status === "failed") ? "complete" : "partial",
     report: {
       ...draft,
       title:
@@ -133,13 +135,10 @@ function publicAnalysis(
     warnings: [...new Set([...state.warnings, ...research.warnings])],
     coverage,
     socialContent: social?.socialContent,
+    dataPosters: state.posters?.dataPosters ?? { status: "extracting", items: [] },
     ...(social && coverage.requirementMet
       ? {
-          socialRetryToken: deps.signSocialSnapshot(
-            draft,
-            sources,
-            input.socialTargetLength,
-          ),
+          socialRetryToken: state.socialRetryToken,
         }
       : {}),
     diagnostics: {
@@ -151,6 +150,7 @@ function publicAnalysis(
       sourceTypes: coverage.citedSourceTypes.length,
       tavilyCredits: research.credits,
       socialDurationMs: social?.durationMs,
+      dataPostersDurationMs: state.posters?.durationMs,
     },
   };
 }
@@ -161,9 +161,10 @@ export function analyze(
   observe?: Observer,
   socialTargetLength = targetLength(Number(process.env.X_TARGET_LENGTH ?? 280)),
   onEvent?: AnalysisInput["onEvent"],
+  dataExtractionPrompt?: string,
 ) {
   // 此实验分支默认关闭核心校验；只有显式设为 true 才恢复严格模式。
-  return runAnalysisGraph({ idea, signal, observe, socialTargetLength, onEvent,
+  return runAnalysisGraph({ idea, signal, observe, socialTargetLength, onEvent, dataExtractionPrompt,
     validateCoreContent: process.env.REPORT_CORE_VALIDATION === "true",
   });
 }

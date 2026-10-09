@@ -1,5 +1,5 @@
 import type { Analysis, AnalysisEvent, AnalysisStage } from "../core/contracts";
-import { displayStatementSchema } from "../core/contracts";
+import { dataPostersSchema, displayStatementSchema } from "../core/contracts";
 import { readEventStream } from "./event-stream";
 import { socialPreviewReader } from "./social-stream";
 
@@ -44,6 +44,12 @@ export async function readAnalysisStream(
     } else if (event.type === "social-start" || event.type === "social-block") {
       if (!confirmed) throw new Error("文案不能先于报告生成，请重试。");
       socialPreview(event);
+    } else if (event.type === "data-posters") {
+      if (!confirmed || !dataPostersSchema.safeParse(event.dataPosters).success)
+        throw new Error("数据海报格式异常，请重试。");
+    } else if (event.type === "social") {
+      if (!confirmed || !event.socialContent || typeof event.socialContent.text !== "string" || !Array.isArray(event.socialContent.warnings))
+        throw new Error("社交文案格式异常，请重试。");
     } else if (event.type === "report" || event.type === "result") {
       if (!event.analysis?.report || !Array.isArray(event.analysis.sources) || !event.analysis.diagnostics)
         throw new Error("分析数据格式异常，请重试。");

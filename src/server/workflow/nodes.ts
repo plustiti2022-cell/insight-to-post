@@ -205,24 +205,42 @@ export const nodes: Record<NodeId, Node> = {
       throw new AnalysisError("INVALID_REPORT", "核心研究内容在自动重试一次后仍未完整生成，请重新分析。");
     return { draft };
   },
-  async social(state, { signal, observe, socialTargetLength, deps, onEvent }) {
-    await onEvent?.({ type: "social-start" });
-    const social = await deps.generateSocialContent(
-      state.draft,
-      eligibleForGeneration(state.research),
-      signal,
-      observe,
-      socialTargetLength,
-      onEvent ? { onBlock: async (text, index) => {
+  async social(state, { signal, observe, socialTargetLength, deps, onEvent, dataExtractionPrompt }) {
+    const sources = eligibleForGeneration(state.research);
+    const socialTask = async () => {
+      await onEvent?.({ type: "social-start" });
+      signal?.throwIfAborted();
+      const social = await deps.generateSocialContent(state.draft, sources, signal, observe, socialTargetLength,
+        onEvent ? { onBlock: async (text, index) => {
+          signal?.throwIfAborted();
+          await onEvent({ type: "social-block", index, text });
+        } } : undefined);
+      signal?.throwIfAborted();
+      await observe?.("social", social);
+      const socialRetryToken = deps.signSocialSnapshot(state.draft, sources, socialTargetLength);
+      await onEvent?.({ type: "social", socialContent: social.socialContent,
+        socialRetryToken });
+      return { ...social, socialRetryToken };
+    };
+    // 研究完成后立即同时启动两个子流程；各自通过事件发布可用结果。
+    const settled = await Promise.allSettled([
+      socialTask(),
+      deps.generateDataPosters(state.draft.summary[0]?.text ?? "", signal, async dataPosters => {
         signal?.throwIfAborted();
-        await onEvent({ type: "social-block", index, text });
-      } } : undefined,
-    );
-    await observe?.("social", social);
+        await onEvent?.({ type: "data-posters", dataPosters });
+      }, dataExtractionPrompt),
+    ]);
+    signal?.throwIfAborted();
+    const [socialResult, posterResult] = settled;
+    if (socialResult.status === "rejected") throw socialResult.reason;
+    if (posterResult.status === "rejected") throw posterResult.reason;
+    const social = socialResult.value, posters = posterResult.value;
     return {
       social,
-      modelCalls: state.modelCalls + social.modelCalls,
-      totalTokens: state.totalTokens + social.totalTokens,
+      socialRetryToken: social.socialRetryToken,
+      posters,
+      modelCalls: state.modelCalls + social.modelCalls + posters.modelCalls,
+      totalTokens: state.totalTokens + social.totalTokens + posters.totalTokens,
     };
   },
 };

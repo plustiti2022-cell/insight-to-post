@@ -47,7 +47,8 @@ async function mocked(run: () => Promise<void>) {
 }
 function dependencies(): AnalysisDependencies {
   return {
-    ...analysisDependencies, streamOpening: async () => {},
+    ...analysisDependencies,
+    generateDataPosters: async () => ({ dataPosters: { status: "complete", items: [] }, modelCalls: 0, totalTokens: 0, durationMs: 0 }), streamOpening: async () => {},
     research: async () => ({ sources: [source], searchCalls: 1, extractorCalls: 0, credits: 0, warnings: [] }),
     generateSocialContent: async (draft, sources) => ({ socialContent: readSocialForDisplay({ paragraphs: [{ text: "模拟模型改写后的社交文案。" }] }, draft, sources, 2000), modelCalls: 0, totalTokens: 0, durationMs: 0 }),
     signSocialSnapshot: () => "mock-snapshot",

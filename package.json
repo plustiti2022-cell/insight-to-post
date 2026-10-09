@@ -15,6 +15,7 @@
     "test:ui:answer": "tsx scripts/verify-ui-answer.mjs",
     "test:ui:image": "node scripts/verify-ui-image.mjs",
     "test:ui:stream": "node scripts/verify-ui-stream.mjs",
+    "test:ui:data": "node scripts/verify-ui-data-posters.mjs",
     "verify:image": "npm run prepare:config && tsx --env-file=.env.local scripts/verify-image.ts",
     "verify:live": "tsx --env-file=.env.local scripts/verify-live.ts"
   },

@@ -23,6 +23,23 @@ function gate() {
 }
 const encoded = (event: AnalysisEvent) => `data: ${JSON.stringify(event)}\n\n`;
 
+test("client accepts progressive posters and independent social completion only after confirmed research", async () => {
+  const socialContent = { status: "ready" as const, text: "独立文案", characterCount: 4, weightedLength: 8, targetLength: 280,
+    warnings: [], claimReferences: [], coverage: { requiredSources: 0, eligibleSourceCount: 0, citedSourceCount: 0, citedSourceTypes: [], requirementMet: true } };
+  const events: AnalysisEvent[] = [
+    { type: "report", analysis },
+    { type: "data-posters", dataPosters: { status: "extracting", items: [] } },
+    { type: "social", socialContent, socialRetryToken: "signed" },
+    { type: "data-posters", dataPosters: { status: "complete", items: [{ id: "D1", text: "增长20%", status: "failed", error: "格式错误" }] } },
+    { type: "result", analysis },
+  ];
+  const received: AnalysisEvent[] = [];
+  await readAnalysisStream(new Response(events.map(encoded).join("")), event => { received.push(event); });
+  assert.deepEqual(received, events);
+  for (const event of events.slice(1, 4))
+    await assert.rejects(readAnalysisStream(new Response(encoded(event) + encoded({ type: "result", analysis })), () => {}), /格式异常/);
+});
+
 test("stream delivers progress before completion, shares JSON capacity and releases on completion", async () => {
   const pending = gate();
   const entered = gate();

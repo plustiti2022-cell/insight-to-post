@@ -3,6 +3,7 @@ import type { Analysis, Reference } from '@/core/contracts';
 import { MetricCard } from "./metric-card";
 import { CoreAnswer } from "./core-answer";
 import { SocialContent } from './social-content';
+import { DataPosters } from './data-posters';
 export function ReportView({ analysis, isDemo, onSource, pending = false, socialPreview = null }: { analysis: Analysis; isDemo: boolean; onSource: (id: string, refs: Reference[]) => void; pending?: boolean; socialPreview?: string | null }) {
   const { report, sources, diagnostics } = analysis;
   const time = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(report.generatedAt));
@@ -13,8 +14,9 @@ export function ReportView({ analysis, isDemo, onSource, pending = false, social
     <CoreAnswer report={report} sources={sources}/>
     {report.cards.length > 0 && <><div className="section-heading"><h3>让数据说话</h3><span>{String(report.cards.length).padStart(2,"0")} 项指标</span></div><div className="metrics">{report.cards.map((card, index) => <MetricCard key={`${card.label}-${index}`} card={card} index={index} onSource={onSource}/>)}</div></>}
     <div className="limitations"><div className="section-heading"><h3><CircleAlert size={17}/> 阅读边界</h3></div>{analysis.warnings.length > 0 && <ul className="warnings">{analysis.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}<ul>{report.limitations.map((limit, index) => <li key={index}>{limit}</li>)}</ul></div>
-    {analysis.socialContent || isDemo || socialPreview !== null ? <SocialContent key={report.generatedAt} analysis={analysis} isDemo={isDemo} onSource={onSource} initialPreview={socialPreview} pending={pending}/> : <p className="social-state" role="status">{pending ? "核心观察已生成，正在生成社交文案…" : "文案尚未完成，可重新分析。"}</p>}
+    {analysis.socialContent || isDemo || socialPreview !== null ? <SocialContent key={report.generatedAt} analysis={analysis} isDemo={isDemo} onSource={onSource} initialPreview={socialPreview} pending={pending && !analysis.socialContent}/> : <p className="social-state" role="status">{pending ? "核心观察已生成，正在生成社交文案…" : "文案尚未完成，可重新分析。"}</p>}
     {!isDemo && <p className="diagnostics">本次研究 · {(diagnostics.durationMs/1000).toFixed(1)} 秒 · Tavily {diagnostics.searchCalls} 次搜索 / {diagnostics.extractorCalls} 次补取 · {diagnostics.tavilyCredits ?? 0} credits · 千问 {diagnostics.modelCalls} 次调用 / {diagnostics.totalTokens.toLocaleString()} tokens</p>}
+    {!isDemo && <DataPosters result={analysis.dataPosters} pending={pending}/>}
     <p className="report-footnote">AI 辅助生成 · 引用可追溯，结论请结合原文核验。</p>
   </section>;
 }

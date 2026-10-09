@@ -26,6 +26,7 @@ const examples = [
 export default function Home() {
   const [idea, setIdea] = useState("");
   const [socialTargetLength, setSocialTargetLength] = useState(2000);
+  const [dataExtractionPrompt, setDataExtractionPrompt] = useState("");
   const [selection, setSelection] = useState<Selection | null>(null);
   const {
     analysis,
@@ -62,7 +63,7 @@ export default function Home() {
       return;
     }
     setSelection(null);
-    void start(idea, socialTargetLength);
+    void start(idea, socialTargetLength, dataExtractionPrompt);
   }
   function onSource(id: string, refs: Reference[]) {
     const source = analysis?.sources.find((item) => item.id === id);
@@ -164,6 +165,14 @@ export default function Home() {
                 </select>
                 <small>长文采用短段落叙述；发布前确认账号支持长帖。</small>
               </div>
+              <details className="data-prompt-option">
+                <summary>数据海报 · 修改提取提示词</summary>
+                <label htmlFor="data-extraction-prompt">提示词 1（可修改）</label>
+                <textarea id="data-extraction-prompt" value={dataExtractionPrompt} disabled={loading}
+                  onChange={event => setDataExtractionPrompt(event.target.value)} maxLength={2000}
+                  placeholder="从此问答中提取出包含具体数据的内容，不要重复，json输出"/>
+                <small>留空使用默认提示词。提示词 2 固定，研究完成后自动生成数据海报。</small>
+              </details>
               <div className="submit-row">
                 <span className="privacy">
                   <ShieldCheck size={14} /> Tavily 研究 · 引用全部已提取文章
