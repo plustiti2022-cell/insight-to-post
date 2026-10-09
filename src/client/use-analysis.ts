@@ -31,7 +31,7 @@ export function useAnalysis() {
     return () => clearInterval(timer);
   }, [loading]);
 
-  async function start(idea: string, socialTargetLength: number) {
+  async function start(idea: string, socialTargetLength: number, dataExtractionPrompt?: string) {
     if (controller.current) return;
     const active = new AbortController();
     controller.current = active;
@@ -47,7 +47,7 @@ export function useAnalysis() {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-        body: JSON.stringify({ idea: idea.trim(), socialTargetLength }),
+        body: JSON.stringify({ idea: idea.trim(), socialTargetLength, ...(dataExtractionPrompt?.trim() ? { dataExtractionPrompt } : {}) }),
         signal: AbortSignal.any([active.signal, AbortSignal.timeout(600000)]),
       });
       if (!response.ok) {
@@ -64,6 +64,9 @@ export function useAnalysis() {
               value?.attempt === event.attempt && value.blocks.length === event.index
                 ? { ...value, blocks: [...value.blocks, event.block] } : value);
             if (event.type === "report") setAnalysis(event.analysis);
+            if (event.type === "data-posters") setAnalysis(value => value ? { ...value, dataPosters: event.dataPosters } : value);
+            if (event.type === "social") setAnalysis(value => value ? { ...value, socialContent: event.socialContent,
+              socialRetryToken: event.socialRetryToken } : value);
           })
         : await response.json();
       if (controller.current === active && !active.signal.aborted) {

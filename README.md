@@ -4,6 +4,10 @@
 
 ## 当前实验分支（2026-10-09）
 
+`codex/research-data-posters` 新增自动数据海报：研究回答完成后，立即并行启动社交文案与数据海报子流程。海报先用固定 `qwen3.8-flash` 从完整研究回答提取全部独立数据观察，返回去重的简短文案 JSON 数组；然后每条单独调用固定 `qwen3.8-max` 输出 768 × 1024 静态 SVG。海报请求最多同时运行两条，全部条目均会处理，不设置条目数量上限。每张完成后立即展示，可查看提取 JSON、SVG 代码并下载 SVG；社交文案完成后也立即展示，无需等待海报结束。
+
+提问区可展开“数据海报 · 修改提取提示词”，编辑提示词 1；留空使用“从此问答中提取出包含具体数据的内容，不要重复，json输出”。提示词 2 在 `server/prompts.ts` 保持用户原文固定，仅将末尾研究内容数字字段替换为当前 JSON 条目的文案。新流程没有自动重试、失败兜底或替代图片：提取错误在板块显示，单张模型或 SVG 错误在对应条目显示，其他条目继续。没有数据时明确显示空结果。取消停止在途和排队任务，保留已完成内容；切换问题清除旧结果。SVG 只允许静态原生图形与文字，以图片元素隔离展示，拒绝脚本、事件、外链等。此检查不代表已核验图中文字或统计含义，发布前仍需对照文案。
+
 `codex/validated-report-stream-test` 默认关闭核心报告的全部内容校验：`REPORT_CORE_VALIDATION=false`（未设置也关闭）。段落长度、首答/要点/结论布局、引用完整性、数字依据、指标卡锚点和旧套话过滤均不作为发布门槛；跳过整篇校验与回答重生成，报告只请求一次。模型仍使用 `qwen3.8-max`，继续按完整段落播放逐字动画，播完后显示信源标签。
 
 关闭模式仍解析完整 JSON、处理取消与断流，完全没有文章正文或模型没有返回可显示正文时明确报错。已知来源和证据编号仍映射到真实文章；无法定位的引用只省略标签，不删除正文。设置 `REPORT_CORE_VALIDATION=true` 可恢复下面的严格报告规则。
@@ -57,6 +61,8 @@ Windows 在项目目录运行：
 
 POST /api/analyze 输入 idea（5～1000 字）及可选 socialTargetLength（280 / 2000）。报告覆盖数量是已提取和实际引用文章数，不是达标门槛。诊断含搜索、补取、credits、模型调用、token 与耗时。
 
+该接口另接收可选 `dataExtractionPrompt`（最多 2000 字符）。SSE 新增 `data-posters`（提取状态和各条海报状态）与 `social`（独立完成的文案和重生成 token）事件；最终 SSE / JSON 结果包含 `dataPosters`，诊断累计两条分支的模型调用和 token，另记录 `dataPostersDurationMs`。海报失败不清空研究报告或文案，最终状态为 partial。
+
 页面默认使用分阶段流式返回：发送 `Accept: text/event-stream`，通过 POST fetch 读取 SSE。研究开始前，独立调用 `QWEN_OPENING_MODEL`（默认 `qwen3.8-flash`），关闭思考、最多 160 输出 token；短提示词要求先接话，再拆成两个关注点，共 60 字内、不下结论。收到文字增量立即用 `opening` 事件展示，开场结束后才执行原工作流。开场只用于展示，不进入研究状态、检索词、报告、文案或签名快照；后续仍只处理用户原始问题。开场调用一次，无自动重试、替代话术或失败兜底，失败直接返回受控错误。
 
 报告使用独立的 `QWEN_REPORT_MODEL`（默认 `qwen3.8-max`），输出预算仍为 7000 token。开场继续使用独立 flash 模型，检索和文案沿用 `QWEN_MODEL`。流式报告在服务端增量解析 JSON，每个完整段落解析展示字段并映射信源后发送给浏览器；未闭合的段落不展示。默认不执行内容检查；启用严格模式后才检查段落结构、引用与数字，并允许整篇重生成一次。
@@ -86,6 +92,8 @@ POST /api/social-image 接收 `{ "text": "当前社交文案" }`，返回 `image
 | `src/server/services/research.ts` → `researchWithTavily` | `searchReviewPrompt` | 用户问题、检索词、正文片段和提取状态 | 只评估首轮；有缺口补搜一次，失败保留文章 |
 | `src/server/services/report.ts` → `generateReport` | `reportPrompt` | 用户问题、来源正文片段、可选校验反馈 | 默认实验模式只生成一次，无校验修稿；严格工作流首次和补写各一次；服务独立调用默认严格模式，最多一次格式修复 |
 | `src/server/services/social.ts` → `generateSocialContent`（生成） | `socialContentPrompt` | 完整核心观察正文、写作风格、目标长度 | 只生成一次，无内容校验、自动纠错或简报复制兜底 |
+| `src/server/services/data-posters.ts` → `generateDataPosters`（提取） | `dataExtractionPrompt` | 完整核心观察正文、可选提示词 1 | Flash 只调用一次，失败直接显示 |
+| `src/server/services/data-posters.ts` → `generateDataPosters`（逐条海报） | `dataPosterPrompt` | 一条提取文案、固定提示词 2 | 每条 Max 只调用一次，失败直接显示，其他条目继续 |
 | `src/server/services/image.ts` → `generateSocialImage` | `socialImagePrompt` | 当前社交文案全文 | 同一提示词最多请求两次，每次只生成一张 |
 
 职责边界：业务模块准备数据、执行校验、控制重试与兜底；prompt 模块只导入数据类型，构建字符串；`server/providers/qwen.ts` 处理模型配置、HTTP、超时与错误。修改指令只需修改 `prompts.ts`，不需要调整调用层。文案 prompt 只接收观点，不接收来源正文或引用元数据。
@@ -110,6 +118,7 @@ POST /api/social-image 接收 `{ "text": "当前社交文案" }`，返回 `image
     npm run test:ui:answer
     npm run test:ui:image
     npm run test:ui:stream
+    npm run test:ui:data
     node scripts/verify-ui-observations.mjs
 
 最后一项调用真实 API，会产生服务用量。其余测试使用模拟响应，覆盖检索词改写、按覆盖补搜、批量提取与失败 URL 重试、分段引用直达原文，以及 prompt 集中管理、少量来源、单一类型、全部 12 篇文章、完整回答检查、请求失败或段落被移除后重生成一次、重试失败或无正文的受控错误、事实校验、取消、复制及签名保护。2026-10-08 本轮 136 项测试、类型检查、生产构建和五项 UI 验证通过，未调用真实 API。此前实测见 [验收记录](./验收记录.md)。
@@ -119,6 +128,8 @@ POST /api/social-image 接收 `{ "text": "当前社交文案" }`，返回 `image
 2026-10-09 关闭核心校验的后续改动：149 项测试、类型检查、生产构建及五项 UI 验证通过。补测超长首答/标题、缺少引用/要点/结论、无锚点数字与指标、未知引用仅省略标签、跳过校验与重生成、公开入口默认关闭及显式恢复、长正文签名快照、空正文/损坏 JSON/断流错误，以及两种模式的逐字播放和手机布局。验证使用模拟响应，未调用真实 API。
 
 2026-10-09 社交文案修复：运行日志确认旧文案校验失败后触发了复制简报的兜底。现已关闭生产文案内容校验与自动纠错、删除该兜底；155 项测试、类型检查、生产构建及五项 UI 验证通过。新增覆盖完整简报作为独立写作输入、模型改写直接展示、单次调用、解析失败保留简报与签名重试、无文案时不生成配图，以及成功重试与历史版本保留。验证使用模拟响应，未新增真实 API 调用。
+
+2026-10-09 数据海报：168 项测试、类型检查、生产构建及六项 UI 验证通过。新增验证覆盖 Flash JSON 提取、Max 逐条生成、固定提示词 2、提示词 1 编辑、全部条目与有限并发、两条分支独立发布和用量、失败直显无重试、空数据、SVG 静态边界、实际图片渲染和下载、320px 布局、取消及过期事件。验证使用模拟响应，未调用真实 API。
 
 图片真实验证（会产生 MiniMax 用量）：`npm run verify:image`。默认使用专门编写的演示文案；也可以 `npm run verify:image -- path/to/social.txt` 使用自己的文案文件。该脚本与页面调用同一工作流入口，保存文案、完整提示词、单张图片和调用记录到 [artifacts/social-image-example](./artifacts/social-image-example/README.md)。已保存的示例无需再次调用 API 即可查看；后续执行验证会更新这个示例目录。
 

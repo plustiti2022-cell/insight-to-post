@@ -7,7 +7,7 @@ export const maxDuration = 600;
 export const POST = jsonEndpoint(
   inputSchema,
   (input, signal) =>
-    analyze(input.idea, signal, undefined, input.socialTargetLength),
+    analyze(input.idea, signal, undefined, input.socialTargetLength, undefined, input.dataExtractionPrompt),
   {
     maxChars: 12000,
     busyMessage: "当前研究任务较多，请稍后重试。",
@@ -16,5 +16,5 @@ export const POST = jsonEndpoint(
     failureMessage: "分析遇到异常，请稍后重试。",
   },
   (input, signal, emit) =>
-    analyze(input.idea, signal, undefined, input.socialTargetLength, emit),
+    analyze(input.idea, signal, undefined, input.socialTargetLength, emit, input.dataExtractionPrompt),
 );

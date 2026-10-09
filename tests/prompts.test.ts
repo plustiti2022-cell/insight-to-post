@@ -42,7 +42,7 @@ test('production model calls use centralized builders and prompts have no runtim
       }
     }
   }
-  assert.equal(calls, 5, '开场、检索词规划、覆盖评估、报告生成与文案生成均使用集中提示词');
+  assert.equal(calls, 7, '开场、检索、报告、文案、数据提取与 SVG 生成均使用集中提示词');
   const imageService = readFileSync(new URL('../src/server/services/image.ts', import.meta.url), 'utf8');
   assert.match(imageService, /const prompt = socialImagePrompt\(\{ text \}\)/);
   assert.match(imageService, /callMiniMaxImage\(prompt, signal\)/);

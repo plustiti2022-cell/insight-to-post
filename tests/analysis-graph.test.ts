@@ -46,6 +46,7 @@ function fixture() {
   const calls: string[] = [];
   const deps: AnalysisDependencies = {
     ...analysisDependencies,
+    generateDataPosters: async () => ({ dataPosters: { status: "complete", items: [] }, modelCalls: 0, totalTokens: 0, durationMs: 0 }),
     streamOpening: async () => {},
     research: async () => {
       calls.push("search");
@@ -93,6 +94,66 @@ function fixture() {
   return { deps, calls };
 }
 const input = { idea: "测试研究问题", socialTargetLength: 2000 };
+
+test("research completion starts social and data posters together and publishes social before posters finish", async () => {
+  const { deps } = fixture();
+  const events: AnalysisEvent[] = [];
+  let releasePosters!: () => void, publishSocial!: () => void;
+  const postersPending = new Promise<void>(resolve => { releasePosters = resolve; });
+  const socialPublished = new Promise<void>(resolve => { publishSocial = resolve; });
+  let posterStarted = false;
+  deps.generateDataPosters = async (text, _signal, update, instructions) => {
+    posterStarted = true;
+    assert.ok(text.includes("实验结果需要结合适用范围理解"));
+    assert.equal(instructions, "自定义提取");
+    assert.ok(events.some(event => event.type === "report"));
+    await update?.({ status: "generating", items: [{ id: "D1", text: "增长20%", status: "generating" }] });
+    await postersPending;
+    const dataPosters = { status: "complete" as const, items: [{ id: "D1", text: "增长20%", status: "failed" as const, error: "SVG 格式错误" }] };
+    await update?.(dataPosters);
+    return { dataPosters, modelCalls: 2, totalTokens: 8, durationMs: 10 };
+  };
+  const running = runAnalysisGraph({ ...input, dataExtractionPrompt: "自定义提取", onEvent: async event => {
+    events.push(event);
+    if (event.type === "social") { assert.equal(posterStarted, true); publishSocial(); }
+  } }, deps);
+  await socialPublished;
+  assert.ok(events.some(event => event.type === "data-posters" && event.dataPosters.status === "generating"));
+  assert.ok(!events.some(event => event.type === "data-posters" && event.dataPosters.status === "complete"));
+  releasePosters();
+  const result = await running;
+  assert.equal(result.socialContent?.status, "ready");
+  assert.equal(result.dataPosters?.items[0].error, "SVG 格式错误");
+  assert.equal(result.diagnostics.modelCalls, 5);
+  assert.equal(result.diagnostics.totalTokens, 24);
+});
+
+test("posters can finish while social is pending and both branches receive cancellation", async () => {
+  const { deps } = fixture();
+  const controller = new AbortController();
+  let posterPublished!: () => void;
+  const published = new Promise<void>(resolve => { posterPublished = resolve; });
+  let socialAborted = false;
+  deps.generateSocialContent = async (_report, _sources, signal) => {
+    await new Promise<void>(resolve => signal!.addEventListener("abort", () => { socialAborted = true; resolve(); }, { once: true }));
+    signal!.throwIfAborted();
+    throw new Error("unreachable");
+  };
+  deps.generateDataPosters = async (_text, signal, update) => {
+    assert.equal(signal, controller.signal);
+    const dataPosters = { status: "complete" as const, items: [] };
+    await update?.(dataPosters);
+    return { dataPosters, modelCalls: 1, totalTokens: 8, durationMs: 10 };
+  };
+  const running = runAnalysisGraph({ ...input, signal: controller.signal, onEvent: async event => {
+    if (event.type === "data-posters") posterPublished();
+    assert.notEqual(event.type, "social");
+  } }, deps);
+  await published;
+  controller.abort();
+  await assert.rejects(running, { name: "AbortError" });
+  assert.equal(socialAborted, true);
+});
 
 test("opening streams before research and its text cannot affect any downstream input or result", async () => {
   const baseline = fixture();

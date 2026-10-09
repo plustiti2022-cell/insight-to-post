@@ -106,6 +106,7 @@ test("workflow continues from unchecked report into a separate successful writin
   };
   const result = await runAnalysisGraph({ idea: "测试独立社交写作的研究问题", socialTargetLength: 2000, validateCoreContent: false }, {
     ...analysisDependencies,
+    generateDataPosters: async () => ({ dataPosters: { status: "complete", items: [] }, modelCalls: 0, totalTokens: 0, durationMs: 0 }),
     research: async () => ({ sources, searchCalls: 1, extractorCalls: 0, credits: 0, warnings: [] }),
     generateReport: async () => ({ draft, warnings: [], modelCalls: 1, totalTokens: 0 }),
     validateReport: () => { assert.fail("core validation must stay off"); },

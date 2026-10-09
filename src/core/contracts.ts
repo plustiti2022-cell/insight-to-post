@@ -126,6 +126,26 @@ export type SocialImageResult = {
   attempts: number;
   durationMs: number;
 };
+export const dataPosterSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  status: z.enum(["pending", "generating", "ready", "failed"]),
+  svg: z.string().optional(),
+  error: z.string().optional(),
+});
+export const dataPostersSchema = z.object({
+  status: z.enum(["extracting", "generating", "complete", "failed"]),
+  items: z.array(dataPosterSchema),
+  error: z.string().optional(),
+});
+export type DataPoster = z.infer<typeof dataPosterSchema>;
+export type DataPosters = z.infer<typeof dataPostersSchema>;
+export type DataPostersResult = {
+  dataPosters: DataPosters;
+  modelCalls: number;
+  totalTokens: number;
+  durationMs: number;
+};
 export type Analysis = {
   coreValidation?: boolean;
   status: "complete" | "partial" | "insufficient";
@@ -135,6 +155,7 @@ export type Analysis = {
   coverage?: Coverage;
   socialContent?: SocialContent;
   socialRetryToken?: string;
+  dataPosters?: DataPosters;
   searchSteps?: SearchStep[];
   diagnostics: {
     durationMs: number;
@@ -145,6 +166,7 @@ export type Analysis = {
     sourceTypes: number;
     tavilyCredits?: number;
     socialDurationMs?: number;
+    dataPostersDurationMs?: number;
   };
 };
 export type AnalysisStage =
@@ -157,6 +179,8 @@ export type AnalysisEvent =
   | { type: "report-start"; attempt: 1 | 2; sources: PublicSource[]; coreValidation?: boolean }
   | { type: "report-block"; attempt: 1 | 2; index: number; block: AnswerBlock }
   | { type: "report"; analysis: Analysis }
+  | { type: "social"; socialContent: SocialContent; socialRetryToken?: string }
+  | { type: "data-posters"; dataPosters: DataPosters }
   | { type: "result"; analysis: Analysis }
   | { type: "error"; error: { code: string; message: string } };
 export type ReportPreview = {
@@ -172,6 +196,7 @@ export const inputSchema = z.object({
     .min(5, "请至少输入 5 个字。")
     .max(1000, "问题最多 1000 个字。"),
   socialTargetLength: z.union([z.literal(280), z.literal(2000)]).optional(),
+  dataExtractionPrompt: z.string().trim().max(2000, "数据提取提示词最多 2000 字符。").optional(),
 });
 
 export type Research = {

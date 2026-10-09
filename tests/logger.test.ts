@@ -88,6 +88,7 @@ test("production services log all visited nodes, recovery, social replay and ima
     let replaySources: Source[] = [];
     const result = await runAnalysisGraph({ idea: "PRIVATE_USER_QUESTION", socialTargetLength: 2000 }, {
       ...analysisDependencies,
+    generateDataPosters: async () => ({ dataPosters: { status: "complete", items: [] }, modelCalls: 0, totalTokens: 0, durationMs: 0 }),
       validateReport: (draft) => ({ report: ++validations === 1 ? { ...draft, summary: [] } : draft, warnings: [] }),
       generateSocialContent: async (...args) => { replaySources = args[1]; return generateSocialContent(...args); },
       signSocialSnapshot: () => "PRIVATE_SIGNED_TOKEN",
@@ -131,6 +132,7 @@ test("cancelled workflow nodes log cancellation without a transition or fallback
   const error = new AnalysisError("CANCELLED", "cancelled");
   await assert.rejects(runAnalysisGraph({ idea: "测试取消", socialTargetLength: 280, signal: controller.signal }, {
     ...analysisDependencies,
+    generateDataPosters: async () => ({ dataPosters: { status: "complete", items: [] }, modelCalls: 0, totalTokens: 0, durationMs: 0 }),
     research: async () => { controller.abort(); throw error; },
   }), (thrown) => thrown === error);
   assert.ok(entries.some((entry) => entry.event === "node.cancelled" && entry.node === "search"));

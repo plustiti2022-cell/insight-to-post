@@ -6,6 +6,8 @@ import type {
   AnalysisEvent,
   AnalysisStage,
   AnswerBlock,
+  DataPosters,
+  DataPostersResult,
 } from "../../core/contracts";
 import type { Observer } from "../runtime";
 
@@ -16,6 +18,8 @@ export type SocialResult = ModelUsage & {
   durationMs: number;
 };
 export type AnalysisDependencies = {
+  generateDataPosters(coreObservation: string, signal?: AbortSignal,
+    onUpdate?: (result: DataPosters) => Promise<void>, instructions?: string): Promise<DataPostersResult>;
   streamOpening(idea: string, signal: AbortSignal | undefined, onDelta: (text: string) => Promise<void>): Promise<void>;
   research(
     query: string,
@@ -54,6 +58,7 @@ export type AnalysisInput = {
   observe?: Observer;
   onEvent?: (event: AnalysisEvent) => Promise<void>;
   socialTargetLength: number;
+  dataExtractionPrompt?: string;
 };
 export type WorkflowState = {
   validateCoreContent: boolean;
@@ -65,6 +70,8 @@ export type WorkflowState = {
   modelCalls: number;
   totalTokens: number;
   social?: SocialResult;
+  socialRetryToken?: string;
+  posters?: DataPostersResult;
 };
 export type NodeId = AnalysisStage;
 export type NodeContext = AnalysisInput & {
