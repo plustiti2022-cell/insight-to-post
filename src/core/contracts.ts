@@ -42,6 +42,7 @@ export const draftSchema = z.object({
   limitations: z.array(z.string().max(400)).max(8),
 });
 export type Reference = z.infer<typeof referenceSchema>;
+export type AnswerBlock = z.infer<typeof statementSchema>;
 export type Card = z.infer<typeof cardSchema>;
 export type Draft = z.infer<typeof draftSchema>;
 export type SourceType =
@@ -130,13 +131,20 @@ export type Analysis = {
 export type AnalysisStage =
   | "search" | "supplement" | "prepareEvidence" | "generate"
   | "validate" | "recoverAnswer" | "completeReport" | "social";
-// 对外事件只包含进度与已完成校验的公开结果，不传输模型原始输出。
+// 段落通过本地检查后可预览；只有 report 才确认整篇报告。
 export type AnalysisEvent =
   | { type: "opening"; text: string }
   | { type: "progress"; stage: AnalysisStage }
+  | { type: "report-start"; attempt: 1 | 2; sources: PublicSource[] }
+  | { type: "report-block"; attempt: 1 | 2; index: number; block: AnswerBlock }
   | { type: "report"; analysis: Analysis }
   | { type: "result"; analysis: Analysis }
   | { type: "error"; error: { code: string; message: string } };
+export type ReportPreview = {
+  attempt: 1 | 2;
+  blocks: AnswerBlock[];
+  sources: PublicSource[];
+};
 export const inputSchema = z.object({
   idea: z
     .string()

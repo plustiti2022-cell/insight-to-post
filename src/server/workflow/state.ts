@@ -5,6 +5,7 @@ import type {
   SocialContent,
   AnalysisEvent,
   AnalysisStage,
+  AnswerBlock,
 } from "../../core/contracts";
 import type { Observer } from "../runtime";
 
@@ -26,7 +27,8 @@ export type AnalysisDependencies = {
     sources: Source[],
     signal?: AbortSignal,
     observe?: Observer,
-    options?: { answerOnly?: boolean; answerFeedback?: readonly string[]; singleAttempt?: boolean },
+    options?: { answerOnly?: boolean; answerFeedback?: readonly string[]; singleAttempt?: boolean;
+      onBlock?: (block: AnswerBlock, index: number) => Promise<void> },
   ): Promise<ModelUsage & { draft: Draft; warnings: string[] }>;
   validateReport(
     draft: Draft,

@@ -9,7 +9,7 @@ export type QwenResponse = {
 export async function callQwen(
   input: string,
   signal?: AbortSignal,
-  options?: { model: string; maxOutputTokens: number; onDelta: (text: string) => Promise<void> },
+  options?: { model?: string; maxOutputTokens?: number; onDelta?: (text: string) => Promise<void> },
 ): Promise<QwenResponse> {
   const key = process.env.QWEN_API_KEY;
   if (!key)
@@ -39,7 +39,7 @@ export async function callQwen(
           reasoning: { effort: "none" },
           store: false,
           max_output_tokens: options?.maxOutputTokens ?? 7000,
-          ...(options ? { stream: true } : {}),
+          ...(options?.onDelta ? { stream: true } : {}),
         }),
         signal: signal ? AbortSignal.any([timeout, signal]) : timeout,
         cache: "no-store",
@@ -65,7 +65,7 @@ export async function callQwen(
         `千问服务返回错误（HTTP ${response.status}），请稍后重试。`,
       );
     }
-    const data = options
+    const data = options?.onDelta
       ? await readQwenStream(response, options.onDelta, signal)
       : (await response.json()) as QwenResponse;
     if (data.status && data.status !== "completed")
@@ -97,11 +97,12 @@ async function readQwenStream(
   onDelta: (text: string) => Promise<void>,
   signal?: AbortSignal,
 ): Promise<QwenResponse> {
-  if (!response.body) throw new AnalysisError("INCOMPLETE", "开场回复未完整完成。");
+  if (!response.body) throw new AnalysisError("INCOMPLETE", "模型回复未完整完成。");
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "", completed: QwenResponse | undefined, hasText = false;
   let ended = false;
+  let text = "";
   async function frame(raw: string) {
     const data = raw.split(/\r?\n/).filter(line => line.startsWith("data:"))
       .map(line => line.slice(5).trimStart()).join("\n");
@@ -109,12 +110,13 @@ async function readQwenStream(
     const event = JSON.parse(data);
     signal?.throwIfAborted();
     if (event.type === "response.output_text.delta") {
-      if (typeof event.delta !== "string") throw new AnalysisError("INCOMPLETE", "开场回复格式异常。");
-      if (event.delta) { hasText = true; await onDelta(event.delta); }
+      if (typeof event.delta !== "string") throw new AnalysisError("INCOMPLETE", "模型回复格式异常。");
+      if (event.delta) { hasText = true; text += event.delta; await onDelta(event.delta); }
     } else if (event.type === "response.completed") {
       completed = event.response;
     } else if (["error", "response.failed", "response.incomplete"].includes(event.type)) {
-      throw new AnalysisError("UPSTREAM_ERROR", "开场模型未完成回复，请重试。");
+      throw new AnalysisError("UPSTREAM_ERROR", "模型未完成回复，请重试。", 502,
+        { modelCalls: 1, totalTokens: event.response?.usage?.total_tokens ?? 0 });
     }
   }
   try {
@@ -129,8 +131,10 @@ async function readQwenStream(
       if (done) { ended = true; break; }
     }
     if (buffer.trim() || !completed || !hasText)
-      throw new AnalysisError("INCOMPLETE", "开场回复未完整完成。");
-    return completed;
+      throw new AnalysisError("INCOMPLETE", "模型回复未完整完成。", 502,
+        { modelCalls: 1, totalTokens: completed?.usage?.total_tokens ?? 0 });
+    // 以实际增量组成的内容为准；完成事件可能只携带状态和用量。
+    return { ...completed, output_text: text };
   } finally {
     if (!ended) await reader.cancel().catch(() => {});
     reader.releaseLock();

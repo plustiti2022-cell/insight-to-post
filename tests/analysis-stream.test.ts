@@ -125,3 +125,18 @@ test("client detects truncated streams and cancels malformed or failed streams",
     assert.equal(cancelled, true);
   }
 });
+
+test("client resets paragraph ordering per attempt and ignores stale or post-confirmation blocks", async () => {
+  const block = { presentation: "lead" as const, text: "已完成段落检查。", references: [] };
+  const start = (attempt: 1 | 2): AnalysisEvent => ({ type: "report-start", attempt, sources: [] });
+  const paragraph = (attempt: 1 | 2, index = 0): AnalysisEvent => ({ type: "report-block", attempt, index, block });
+  const events: AnalysisEvent[] = [];
+  await readAnalysisStream(new Response([
+    start(1), paragraph(1), start(2), paragraph(1, 1), paragraph(2),
+    { type: "report", analysis }, paragraph(2, 1), { type: "result", analysis },
+  ].map(event => encoded(event as AnalysisEvent)).join("")), event => events.push(event));
+  assert.deepEqual(events.map(event => event.type), ["report-start", "report-block", "report-start", "report-block", "report", "result"]);
+  for (const invalid of [[paragraph(1)], [start(2)], [start(1), paragraph(1, 1)], [start(1), start(1)]]) {
+    await assert.rejects(readAnalysisStream(new Response([...invalid, { type: "result", analysis } as AnalysisEvent].map(encoded).join("")), () => {}), /格式异常/);
+  }
+});

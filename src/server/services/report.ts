@@ -3,13 +3,15 @@ import {
   draftSchema,
   cardSchema,
   statementSchema,
+  type AnswerBlock,
   type Source,
 } from "../../core/contracts";
 import { callQwen, outputText } from "../providers/qwen";
-import { AnalysisError, parseModelJson } from "../runtime";
+import { AnalysisError, parseModelJson, rethrowCancellation } from "../runtime";
 import { reportPrompt } from "../prompts";
-import { evidenceRegistry, hydrateReferences } from "../../core/evidence";
-import { answerStructureIssues } from "../../core/report";
+import { evidenceRegistry, hydrateReferences, validAnswerEvidence } from "../../core/evidence";
+import { answerStructureIssues, hasOpeningSummary, presentAnswerBlock } from "../../core/report";
+import { reportBlockReader } from "../report-stream";
 import { createLogger, failureDetails } from "../logger";
 const logger = createLogger("report");
 
@@ -18,7 +20,8 @@ export async function generateReport(
   sources: Source[],
   signal?: AbortSignal,
   observe?: (stage: string, data: unknown) => Promise<void>,
-  options: { answerOnly?: boolean; answerFeedback?: readonly string[]; singleAttempt?: boolean } = {},
+  options: { answerOnly?: boolean; answerFeedback?: readonly string[]; singleAttempt?: boolean;
+    onBlock?: (block: AnswerBlock, index: number) => Promise<void> } = {},
 ) {
   return logger.run("generate", { sourceCount: sources.length, answerOnly: Boolean(options.answerOnly) }, async () => {
     const records = evidenceRegistry(sources, idea);
@@ -30,8 +33,21 @@ export async function generateReport(
       }));
     let totalTokens = 0;
     let correction = "";
-    const attempts = options.answerOnly || options.singleAttempt ? 1 : 2;
+    const attempts = options.answerOnly || options.singleAttempt || options.onBlock ? 1 : 2;
     for (let attempt = 0; attempt < attempts; attempt++) {
+      let streamIssue = "";
+      const readBlock = reportBlockReader(async (raw, index) => {
+        const hydrated = hydrateReferences({ summary: [raw], cards: [] }, records) as { summary: unknown[] };
+        const item = statementSchema.parse(hydrated.summary[0]);
+        const block = presentAnswerBlock(item, index);
+        if (!block || !validAnswerEvidence(item, sources) || !validAnswerEvidence(block, sources) ||
+            (index === 0 && (!hasOpeningSummary({ summary: [item] }) || !hasOpeningSummary({ summary: [block] }))) ||
+            (index > 0 && item.presentation === "lead") ||
+            (item.presentation === "bullet" && !block.label?.trim()))
+          throw new Error("回答段落的结构、引用或数字未通过校验，须重新生成完整回答。");
+        signal?.throwIfAborted();
+        await options.onBlock?.(block, index);
+      });
       logger.info("model.started", { attempt: attempt + 1, maxAttempts: attempts });
       const result = await callQwen(
         reportPrompt({
@@ -41,11 +57,25 @@ export async function generateReport(
           ...options,
         }),
         signal,
+        {
+          model: process.env.QWEN_REPORT_MODEL ?? "qwen3.8-max",
+          ...(options.onBlock ? { onDelta: async (text: string) => {
+            signal?.throwIfAborted();
+            // 失效段落不公开；继续读完以取得用量，由工作流统一重试一次。
+            if (streamIssue) return;
+            try { await readBlock(text); }
+            catch (error) {
+              rethrowCancellation(error, signal);
+              streamIssue = "流式段落的结构、引用或数字未通过校验，须重新生成完整回答。";
+            }
+          } } : {}),
+        },
       );
       totalTokens += result.usage?.total_tokens ?? 0;
       logger.info("model.completed", { attempt: attempt + 1, outputLength: outputText(result).length, totalTokens });
       await observe?.(`report-output-${attempt}`, { text: outputText(result) });
       try {
+        if (streamIssue) throw new Error(streamIssue);
         const input = z
           .object({
             summary: z.array(z.unknown()).min(1).max(30),

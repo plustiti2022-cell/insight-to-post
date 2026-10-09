@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import type { Analysis } from "@/core/contracts";
+import type { Analysis, ReportPreview } from "@/core/contracts";
 import { analysisProgress, readAnalysisStream } from "./analysis-stream";
 
 // 请求生命周期集中管理：取消、超时、卸载与过期响应只作用于自己的请求。
@@ -12,6 +12,7 @@ export function useAnalysis() {
   const [elapsed, setElapsed] = useState(0);
   const [progress, setProgress] = useState("");
   const [opening, setOpening] = useState("");
+  const [reportPreview, setReportPreview] = useState<ReportPreview | null>(null);
   const controller = useRef<AbortController | null>(null);
   useEffect(
     () => () => {
@@ -38,6 +39,7 @@ export function useAnalysis() {
     setError("");
     setElapsed(0);
     setAnalysis(null);
+    setReportPreview(null);
     setIsDemo(false);
     setOpening("");
     setProgress("正在理解问题");
@@ -57,6 +59,10 @@ export function useAnalysis() {
             if (controller.current !== active || active.signal.aborted) return;
             if (event.type === "opening") setOpening(value => value + event.text);
             if (event.type === "progress") setProgress(analysisProgress[event.stage]);
+            if (event.type === "report-start") setReportPreview({ attempt: event.attempt, blocks: [], sources: event.sources });
+            if (event.type === "report-block") setReportPreview(value =>
+              value?.attempt === event.attempt && value.blocks.length === event.index
+                ? { ...value, blocks: [...value.blocks, event.block] } : value);
             if (event.type === "report") setAnalysis(event.analysis);
           })
         : await response.json();
@@ -66,6 +72,7 @@ export function useAnalysis() {
       }
     } catch (err) {
       if (controller.current !== active) return;
+      setReportPreview(null);
       setError(
         active.signal.aborted
           ? "分析已取消。问题已保留，可以再次开始。"
@@ -86,10 +93,12 @@ export function useAnalysis() {
   }
   function clear() {
     setAnalysis(null);
+    setReportPreview(null);
     setOpening("");
     setError("");
   }
   function showDemo(value: Analysis) {
+    setReportPreview(null);
     setAnalysis(value);
     setIsDemo(true);
   }
@@ -101,6 +110,8 @@ export function useAnalysis() {
     elapsed,
     progress,
     opening,
+    reportPreview,
+    finishReportPreview: () => setReportPreview(null),
     start,
     clear,
     showDemo,

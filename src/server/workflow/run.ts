@@ -77,6 +77,11 @@ export async function runAnalysisGraph(
       visited.add(current);
       const node: NodeId = current;
       await input.onEvent?.({ type: "progress", stage: node });
+      if (node === "generate" || node === "recoverAnswer") {
+        await input.onEvent?.({ type: "report-start", attempt: node === "generate" ? 1 : 2,
+          sources: publicSources(eligibleForGeneration(state.research), { ...state.draft, summary: [], cards: [] }),
+        });
+      }
       input.signal?.throwIfAborted();
       current = await logger.run("node", { node }, async () => {
         state = { ...state, ...(await nodes[node](state, context)) };

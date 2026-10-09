@@ -1,4 +1,5 @@
 import type { Analysis, AnalysisEvent, AnalysisStage } from "../core/contracts";
+import { statementSchema } from "../core/contracts";
 
 export const analysisProgress: Record<AnalysisStage, string> = {
   search: "正在规划检索、提取正文并评估覆盖",
@@ -22,6 +23,7 @@ export async function readAnalysisStream(
   let buffer = "";
   let result: Analysis | undefined;
   let ended = false;
+  let attempt = 0, blockIndex = 0, confirmed = false;
   function frame(text: string) {
     const data = text.split(/\r?\n/).filter(line => line.startsWith("data:"))
       .map(line => line.slice(5).trimStart()).join("\n");
@@ -36,10 +38,21 @@ export async function readAnalysisStream(
       if (typeof event.text !== "string") throw new Error("开场数据格式异常，请重试。");
     } else if (event.type === "progress") {
       if (!Object.hasOwn(analysisProgress, event.stage)) throw new Error("分析进度格式异常，请重试。");
+    } else if (event.type === "report-start") {
+      if (confirmed || ![1, 2].includes(event.attempt) || event.attempt !== attempt + 1 || !Array.isArray(event.sources))
+        throw new Error("报告轮次格式异常，请重试。");
+      attempt = event.attempt; blockIndex = 0;
+    } else if (event.type === "report-block") {
+      // 已被替换的轮次不能恢复到页面。
+      if (event.attempt < attempt || confirmed) return;
+      if (!attempt || event.attempt !== attempt || event.index !== blockIndex || !statementSchema.safeParse(event.block).success)
+        throw new Error("报告段落格式异常，请重试。");
+      blockIndex++;
     } else if (event.type === "report" || event.type === "result") {
       if (!event.analysis?.report || !Array.isArray(event.analysis.sources) || !event.analysis.diagnostics)
         throw new Error("分析数据格式异常，请重试。");
       if (event.type === "result") result = event.analysis;
+      confirmed = true;
     } else throw new Error("分析数据格式异常，请重试。");
     onEvent(event);
   }

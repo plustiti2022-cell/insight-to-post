@@ -16,13 +16,19 @@ function SourceLinks({ references, sources }: { references: Reference[]; sources
   })}</>;
 }
 
-export function CoreAnswer({ report, sources }: { report: Draft; sources: PublicSource[] }) {
-  const blocks = report.answerBlocks ?? report.summary;
-  const content = (item: Draft["summary"][number], opening = false) => <>
+export function CoreAnswer({ report, sources, playback }: { report: Pick<Draft, "summary" | "answerBlocks">; sources: PublicSource[];
+  playback?: { index: number; characters: number } }) {
+  const allBlocks = report.answerBlocks ?? report.summary;
+  const blocks = playback ? allBlocks.slice(0, playback.index + 1) : allBlocks;
+  const content = (item: Draft["summary"][number], index: number, opening = false) => {
+    const letters = Array.from(item.text);
+    const typing = playback?.index === index && playback.characters < letters.length;
+    const text = typing ? letters.slice(0, playback.characters).join("") : item.text;
+    return <>
     {item.label && <strong>{item.label}： </strong>}
-    {opening ? <strong className="answer-opening">{item.text}</strong> : item.text}{" "}
-    <SourceLinks references={item.references} sources={sources}/>
-  </>;
+    {opening ? <strong className="answer-opening">{text}</strong> : text}{" "}
+    {typing ? <span className="answer-cursor" aria-hidden="true">▍</span> : <SourceLinks references={item.references} sources={sources}/>}
+  </>; };
   const elements = [];
   for (let index = 0; index < blocks.length; index++) {
     const item = blocks[index];
@@ -31,14 +37,14 @@ export function CoreAnswer({ report, sources }: { report: Draft; sources: Public
       const bullets = [];
       const start = index;
       while (index < blocks.length && blocks[index].presentation === "bullet") {
-        bullets.push(<li key={index}>{content(blocks[index])}</li>);
+        bullets.push(<li key={index}>{content(blocks[index], index)}</li>);
         index++;
       }
       index--;
       elements.push(<ul className="answer-points" key={start}>{bullets}</ul>);
     } else {
       elements.push(<div key={index} className={`summary-item answer-${opening ? "lead" : item.presentation === "lead" ? "paragraph" : item.presentation ?? "paragraph"}`}>
-        <p>{content(item, opening)}</p>
+        <p>{content(item, index, opening)}</p>
       </div>);
     }
   }

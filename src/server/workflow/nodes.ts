@@ -115,13 +115,16 @@ export const nodes: Record<NodeId, Node> = {
     }
     return { warnings };
   },
-  generate: reportNode(async (state, { idea, signal, observe, deps }) => {
+  generate: reportNode(async (state, { idea, signal, observe, deps, onEvent }) => {
     const generated = await deps.generateReport(
       idea,
       eligibleForGeneration(state.research),
       signal,
       observe,
-      { singleAttempt: true },
+      { singleAttempt: true, ...(onEvent ? { onBlock: async (block, index) => {
+        signal?.throwIfAborted();
+        await onEvent({ type: "report-block", attempt: 1, index, block });
+      } } : {}) },
     );
     await observe?.("draft-0", generated.draft);
     return {
@@ -145,7 +148,7 @@ export const nodes: Record<NodeId, Node> = {
       warnings: [...state.warnings, ...validated.warnings],
     };
   }),
-  async recoverAnswer(state, { idea, signal, observe, deps }) {
+  async recoverAnswer(state, { idea, signal, observe, deps, onEvent }) {
     // 生成失败或校验后结构不完整时，复用全部正文重生成一次。
     const sources = eligibleForGeneration(state.research);
     let modelCalls = state.modelCalls;
@@ -157,7 +160,11 @@ export const nodes: Record<NodeId, Node> = {
       const generated = await deps.generateReport(
         idea, sources, signal,
         observe ? (stage, data) => observe(`answer-recovery-${stage}`, data) : undefined,
-        { answerOnly: true, answerFeedback: state.answerFeedback },
+        { answerOnly: true, answerFeedback: state.answerFeedback,
+          ...(onEvent ? { onBlock: async (block, index) => {
+            signal?.throwIfAborted();
+            await onEvent({ type: "report-block", attempt: 2, index, block });
+          } } : {}) },
       );
       modelCalls += generated.modelCalls - 1;
       totalTokens += generated.totalTokens;

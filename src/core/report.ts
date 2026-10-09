@@ -49,15 +49,10 @@ export function includeEveryArticle(draft: Draft, sources: Source[]): Draft {
       if (!record) continue;
       references.push({ sourceId: source.id, quote: record.text });
     }
-  const contentBlocks = draft.summary
-    .filter((item) => !isArticleExcerpt(item.text))
-    .map((item, index) => ({
-      ...item,
-      text: plain(item.text),
-      ...(item.label ? { label: plain(item.label) } : {}),
-      presentation: item.presentation ?? (index === 0 && item.text.trim().length <= ANSWER_LEAD_MAX_LENGTH && !/[\r\n]/.test(item.text.trim()) ? "lead" as const : "paragraph" as const),
-    }))
-    .filter((item) => item.text);
+  const contentBlocks = draft.summary.flatMap((item, index) => {
+    const block = presentAnswerBlock(item, index);
+    return block ? [block] : [];
+  });
   const ideas = contentBlocks.map((item) => item.label ? `${item.label}：${item.text}` : item.text);
   const text =
     ideas.filter(Boolean).join("\n\n") ||
@@ -80,6 +75,17 @@ export function includeEveryArticle(draft: Draft, sources: Source[]): Draft {
     // 页面保留各段真实引用；完整纯文字与全部文章依据仍供既有社交逻辑使用。
     answerBlocks,
   });
+}
+// 预览和正式报告共享纯文字整理，避免确认报告时出现不同的正文。
+export function presentAnswerBlock(item: Draft["summary"][number], index: number) {
+  if (isArticleExcerpt(item.text)) return undefined;
+  const text = plain(item.text);
+  if (!text) return undefined;
+  return {
+    ...item, text,
+    ...(item.label ? { label: plain(item.label) } : {}),
+    presentation: item.presentation ?? (index === 0 && text.length <= ANSWER_LEAD_MAX_LENGTH && !/[\r\n]/.test(text) ? "lead" as const : "paragraph" as const),
+  };
 }
 function isArticleExcerpt(text: string) {
   return /提供的原文线索|这段材料可与本次问题|值得关注的原文片段/.test(text);

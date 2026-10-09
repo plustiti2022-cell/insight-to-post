@@ -137,10 +137,93 @@ try {
   await page.getByRole('alert').filter({ hasText: '模拟开场失败。' }).waitFor();
   assert.equal(await page.getByTestId('opening-text').count(), 0);
   assert.equal(await page.locator('.report').count(), 0);
+
+  // Validated paragraphs arrive before whole-report confirmation and play one by one.
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  const previewSource = { id: 'S1', url: 'https://example.org/research', title: '段落引用测试', sourceType: '研究论文', publishedAt: null,
+    hasEvidence: true, status: 'referenced', statusReason: '模拟已取得正文' };
+  const previewRefs = [{ sourceId: 'S1', quote: '这是用于检查段落播放和信源链接的完整模拟证据片段。' }];
+  const blocks = [
+    { presentation: 'lead', text: '这段内容已经通过段落检查，页面会逐字展示完整回答，然后才显示能够点击的信源标签。整篇回答仍然需要等待最终结构检查，不能提前当成完成的报告。', references: previewRefs },
+    { presentation: 'bullet', label: '具体依据', text: '这一段紧随首答显示，检查文字和引用是否保持对应。', references: previewRefs },
+    { presentation: 'conclusion', text: '结论需要结合研究的适用范围理解。', references: previewRefs },
+  ];
+  const previewAnalysis = { ...partial, sources: [previewSource], report: { ...partial.report, summary: blocks, answerBlocks: blocks } };
+  const begin = async question => {
+    await field.fill(question);
+    await start.click();
+    const res = await nextRequest();
+    send(res, { type: 'report-start', attempt: 1, sources: [previewSource] });
+    await page.getByTestId('report-preview').waitFor();
+    return res;
+  };
+  response = await begin('完整段落校验后逐字展示的测试');
+  assert.equal(await page.locator('.answer-source').count(), 0);
+  send(response, { type: 'report-block', attempt: 1, index: 0, block: blocks[0] });
+  await page.waitForFunction(full => {
+    const text = document.querySelector('.answer-opening')?.textContent || '';
+    return text.length > 0 && text.length < full.length;
+  }, blocks[0].text);
+  assert.equal(await page.locator('.answer-source').count(), 0, 'source label waits for the paragraph animation');
+  assert.equal(await page.getByTestId('social-text').count(), 0);
+  await page.getByTestId('report-preview').screenshot({ path: '.local/stream-paragraph-typing.png' });
+  await page.locator('.answer-source').waitFor();
+  assert.equal(await page.locator('.answer-opening').textContent(), blocks[0].text);
+  assert.equal(await page.locator('.answer-source').getAttribute('href'), previewSource.url);
+  assert.equal(await page.locator('.answer-source').getAttribute('target'), '_blank');
+  send(response, { type: 'report-block', attempt: 1, index: 1, block: blocks[1] });
+  send(response, { type: 'report-block', attempt: 1, index: 2, block: blocks[2] });
+  send(response, { type: 'report', analysis: previewAnalysis });
+  await page.getByText('完整报告已通过校验。', { exact: true }).waitFor();
+  assert.equal(await page.getByTestId('report-preview').count(), 1, 'confirmation must not skip queued typing');
+  send(response, { type: 'result', analysis: { ...complete, report: previewAnalysis.report, sources: previewAnalysis.sources } });
+  response.end();
+  await page.getByTestId('report-preview').waitFor({ state: 'detached' });
+  await page.getByTestId('social-text').waitFor();
+  assert.equal(await page.locator('.answer-source').count(), 3);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await page.locator('.report').screenshot({ path: '.local/stream-paragraphs-confirmed.png' });
+  await page.getByRole('alert').filter({ hasText: '流式配图测试使用模拟响应。' }).waitFor();
+  assert.equal(imageRequests, 2);
+
+  response = await begin('重新生成必须清空第一轮播放队列');
+  send(response, { type: 'report-block', attempt: 1, index: 0, block: blocks[0] });
+  await page.locator('.answer-cursor').waitFor();
+  send(response, { type: 'report-start', attempt: 2, sources: [previewSource] });
+  await page.getByText('部分内容未通过校验，正在重新生成。', { exact: true }).waitFor();
+  assert.equal(await page.locator('.answer-opening').count(), 0);
+  send(response, { type: 'report-block', attempt: 1, index: 1, block: blocks[1] });
+  send(response, { type: 'report-block', attempt: 2, index: 0, block: { ...blocks[0], text: '第二轮生成的回答已经通过段落检查。' } });
+  await page.getByText('第二轮生成的回答已经通过段落检查。', { exact: true }).waitFor();
+  assert.equal(await page.getByText('具体依据：', { exact: true }).count(), 0, 'stale first-attempt block is ignored');
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: '分析已取消。' }).waitFor();
+  assert.equal(await page.locator('.report').count(), 0, 'unconfirmed preview is cleared on cancellation');
+  response.end();
+
+  for (const failure of ['error', 'truncated']) {
+    response = await begin(`段落播放中失败清理的测试 ${failure}`);
+    send(response, { type: 'report-block', attempt: 1, index: 0, block: blocks[0] });
+    await page.locator('.answer-cursor').waitFor();
+    if (failure === 'error') send(response, { type: 'error', error: { code: 'INVALID_REPORT', message: '第二轮报告仍未通过校验。' } });
+    response.end();
+    await page.getByRole('alert').filter({ hasText: failure === 'error' ? '第二轮报告仍未通过校验。' : '连接中断，分析未完整完成，请重试。' }).waitFor();
+    assert.equal(await page.locator('.report').count(), 0, 'failed preview and animation are removed');
+  }
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  response = await begin('减少动态效果时完整显示校验段落');
+  blocks.forEach((block, index) => send(response, { type: 'report-block', attempt: 1, index, block }));
+  await page.getByText(blocks[2].text, { exact: false }).waitFor();
+  assert.equal(await page.locator('.answer-cursor').count(), 0);
+  assert.equal(await page.locator('.answer-source').count(), 3);
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: '分析已取消。' }).waitFor();
+  response.end();
   assert.deepEqual(errors, []);
-  assert.equal(imageRequests, 1, 'errors, cancellation and truncated streams cannot trigger more image requests');
+  assert.equal(imageRequests, 2, 'unconfirmed, failed and cancelled previews cannot trigger images');
   await context.close();
-  console.log(`Streaming UI passed: mock click-to-first-model-text ${firstTextMs}ms, incremental opening before research, opening failure, HTTP progress, report before social, split UTF-8, 390/320px, error retention, cancellation, stale results and truncated stream.`);
+  console.log(`Streaming UI passed: mock first text ${firstTextMs}ms, validated paragraph typing, delayed source labels, queued confirmation, retry reset, reduced motion, split UTF-8, 390/320px, cancellation, stale events and truncated streams.`);
 } finally {
   await browser.close();
   server.closeAllConnections();

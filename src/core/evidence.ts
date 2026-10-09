@@ -124,6 +124,13 @@ function numericMatch(text: string, evidence: string) {
   const available = numbers(evidence);
   return numbers(text).every((value) => available.includes(value));
 }
+export function validAnswerEvidence(item: Draft["summary"][number], sources: Source[]) {
+  return validReferences(item.references, sources) && numericMatch(
+    [item.label, item.text].filter(Boolean).join(" "),
+    item.references.map((ref) => ref.quote).join(" "),
+  );
+}
+
 export function validateReport(draft: Draft, sources: Source[]) {
   const warnings: string[] = [];
   const cards = draft.cards.filter((card) => {
@@ -159,12 +166,7 @@ export function validateReport(draft: Draft, sources: Source[]) {
     return valid;
   });
   const summary = draft.summary.filter((item) => {
-    const valid =
-      validReferences(item.references, sources) &&
-      numericMatch(
-        [item.label, item.text].filter(Boolean).join(" "),
-        item.references.map((ref) => ref.quote).join(" "),
-      );
+    const valid = validAnswerEvidence(item, sources);
     if (!valid)
       warnings.push("一条总结缺少可定位证据或包含未支持的数字，已移除。");
     return valid;

@@ -40,3 +40,4 @@
   .search-count { font-size: 10px; }
 }
 .opening-message{margin-top:18px;padding:16px 18px;background:#f4f5ee;border:1px solid var(--line);border-radius:10px;font-size:13px;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere}
+.report-preview{margin-top:28px}.report-preview-status{font-size:12px;line-height:1.8;color:#78846e;margin-top:16px}.answer-cursor{color:#81966a;font-weight:400}

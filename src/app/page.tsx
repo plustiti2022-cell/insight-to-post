@@ -15,6 +15,7 @@ import type { Reference } from "@/core/contracts";
 import { demo } from "@/client/demo";
 import { useAnalysis } from "@/client/use-analysis";
 import { ReportView } from "@/components/report-view";
+import { ReportPreviewView } from "@/components/report-preview";
 import { SourceSheet, type Selection } from "@/components/source-sheet";
 const examples = [
   "AI 编程工具会让初级工程师岗位减少吗？",
@@ -33,6 +34,8 @@ export default function Home() {
     elapsed,
     progress,
     opening,
+    reportPreview,
+    finishReportPreview,
     start,
     clear,
     showDemo,
@@ -41,7 +44,7 @@ export default function Home() {
   } = useAnalysis();
   const result = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
-  const reportId = analysis?.report.generatedAt;
+  const reportId = Boolean(reportPreview || analysis);
   useEffect(() => {
     if (reportId)
       requestAnimationFrame(() =>
@@ -130,10 +133,8 @@ export default function Home() {
                 value={idea}
                 onChange={(event) => {
                   setIdea(event.target.value);
-                  if (analysis) {
-                    clear();
-                    setSelection(null);
-                  }
+                  clear();
+                  setSelection(null);
                 }}
                 maxLength={1000}
                 disabled={loading}
@@ -238,7 +239,7 @@ export default function Home() {
               ))}
             </div>
           </div>
-          {!analysis && (
+          {!analysis && !reportPreview && (
             <aside className="how-it-works">
               <div className="aside-heading">
                 <span className="eyebrow">A BETTER WAY TO KNOW</span>
@@ -287,7 +288,8 @@ export default function Home() {
           )}
         </section>
         <div ref={result} className="result-anchor">
-          {analysis && (
+          {reportPreview ? <ReportPreviewView key={reportPreview.attempt} preview={reportPreview} title={idea}
+            confirmed={analysis} onComplete={finishReportPreview}/> : analysis && (
             <>
               <div className="result-navigation">
                 <span>{isDemo ? "报告预览" : "本次研究结果"}</span>
@@ -304,7 +306,7 @@ export default function Home() {
             </>
           )}
         </div>
-        {!analysis && (
+        {!analysis && !reportPreview && (
           <div className="manifesto">
             <span>LESS GUESSWORK. MORE CLARITY.</span>
             <p>好的判断，从看得见的依据开始。</p>
