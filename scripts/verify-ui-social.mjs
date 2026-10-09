@@ -32,15 +32,83 @@ try {
   await page.getByRole('textbox',{name:'手动复制文字'}).waitFor();assert.equal(await page.getByRole('textbox',{name:'手动复制文字'}).inputValue(),text);
   assert.equal(await page.getByRole('button',{name:'已复制',exact:true}).count(),0,'denied copy must not show success');
   let retries=0;
+  const secondText='第二版文案，保留不同的判断。\n\n这次更关注协作方式。';
+  const thirdText='第三版文案，提供另一种表达。';
+  let releaseVersion, observedVersion;
+  const versionGate=new Promise(resolve=>{releaseVersion=resolve;});
+  const versionRequest=new Promise(resolve=>{observedVersion=resolve;});
+  await page.route('**/api/social-content',async route=>{
+    retries++;observedVersion();await versionGate;
+    return route.fulfill({json:{socialContent:{...fixture.socialContent,text:secondText,characterCount:secondText.length,weightedLength:42,warnings:['第二版长度提示。']}}});
+  });
+  await page.getByRole('button',{name:'重新生成文案'}).click();await versionRequest;
+  assert.equal(await page.getByTestId('social-text').innerText(),text,'pending regeneration preserves the original text');
+  releaseVersion();await page.getByTestId('social-text').filter({hasText:'第二版文案'}).waitFor();
+  const versions=page.getByRole('region',{name:'文案版本',exact:true});
+  assert.equal(await versions.getByRole('status').innerText(),'文案 2 / 2');
+  assert.equal(await versions.getByRole('button',{name:'下一个文案'}).isDisabled(),true);
+  assert.match(await page.locator('.social-meta').innerText(),/X 加权 42/);
+  await page.getByRole('button',{name:'一键复制',exact:true}).click();
+  await page.getByRole('textbox',{name:'手动复制文字'}).waitFor();
+  assert.equal(await page.getByRole('textbox',{name:'手动复制文字'}).inputValue(),secondText);
+  await versions.getByRole('button',{name:'上一个文案'}).click();
+  assert.equal(await page.getByTestId('social-text').innerText(),text);
+  assert.equal(await page.getByRole('textbox',{name:'手动复制文字'}).count(),0,'selecting a version clears the previous manual copy');
+  assert.equal(await versions.getByRole('button',{name:'上一个文案'}).isDisabled(),true);
+  assert.match(await page.locator('.social-meta').innerText(),/X 加权 160/);
+  assert.equal(await page.getByText('第二版长度提示。',{exact:true}).count(),0);
+  // Horizontal swipes select a version; vertical scrolling leaves it selected.
+  const swipe=async(dx,dy=0)=>{
+    const viewport=versions.locator('.version-content');
+    await viewport.dispatchEvent('touchstart',{touches:[{identifier:1,clientX:180,clientY:200}]});
+    await viewport.dispatchEvent('touchend',{touches:[],changedTouches:[{identifier:1,clientX:180+dx,clientY:200+dy}]});
+  };
+  await swipe(-100);assert.equal(await page.getByTestId('social-text').innerText(),secondText);
+  await swipe(20,150);assert.equal(await page.getByTestId('social-text').innerText(),secondText);
+  await swipe(100);assert.equal(await page.getByTestId('social-text').innerText(),text);
+  const touchClient=await context.newCDPSession(page);
+  const nativeSwipe=async dx=>{
+    await page.getByTestId('social-text').scrollIntoViewIfNeeded();
+    const box=await page.getByTestId('social-text').boundingBox();
+    const x=box.x+box.width/2;const y=box.y+box.height/2;
+    await touchClient.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+    await touchClient.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+dx/2,y}]});
+    await touchClient.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+dx,y}]});
+    await touchClient.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  };
+  await nativeSwipe(-80);await page.getByTestId('social-text').filter({hasText:secondText}).waitFor();
+  await nativeSwipe(80);await page.getByTestId('social-text').filter({hasText:text}).waitFor();
+  await versions.getByRole('button',{name:'下一个文案'}).press('ArrowRight');
+  assert.equal(await page.getByTestId('social-text').innerText(),secondText);
+  await page.unroute('**/api/social-content');
+  await page.route('**/api/social-content',route=>{retries++;return route.fulfill({json:{socialContent:{...fixture.socialContent,text:thirdText}}});});
+  await page.getByRole('button',{name:'重新生成文案'}).click();
+  await page.getByTestId('social-text').filter({hasText:thirdText}).waitFor();
+  assert.equal(await versions.getByRole('status').innerText(),'文案 3 / 3');
+  await versions.getByRole('button',{name:'上一个文案'}).click();
+  assert.equal(await page.getByTestId('social-text').innerText(),secondText,'all earlier successful versions remain selectable');
+  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedVersion=value;}}}));
+  await page.getByRole('button',{name:'一键复制',exact:true}).click();
+  await page.getByRole('button',{name:'已复制',exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.copiedVersion),secondText,'copy uses the selected historical version');
+  await page.unroute('**/api/social-content');
   await page.route('**/api/social-content',route=>{retries++;return route.fulfill({contentType:'application/json',body:JSON.stringify({socialContent:{...fixture.socialContent,status:'failed',text:'',warnings:['模拟文案失败，报告保留。']}})});});
   await page.getByRole('button',{name:'重新生成文案'}).click();await page.getByText('模拟文案失败，报告保留。').waitFor();
-  assert.equal(await page.getByRole('button',{name:'一键复制',exact:true}).isDisabled(),true);assert.equal(retries,1);
+  assert.equal(await page.getByRole('button',{name:'一键复制',exact:true}).isEnabled(),true);assert.equal(retries,3);
+  assert.equal(await page.getByTestId('social-text').innerText(),secondText,'failed generation preserves the selected version');
+  assert.equal(await versions.getByRole('status').innerText(),'文案 2 / 3','failed generation must not add an empty version');
+  await page.unroute('**/api/social-content');
+  await page.route('**/api/social-content',route=>route.fulfill({status:502,json:{error:{message:'模拟文案请求失败。'}}}));
+  await page.getByRole('button',{name:'重新生成文案'}).click();await page.getByRole('alert').filter({hasText:'模拟文案请求失败。'}).waitFor();
+  assert.equal(await page.getByTestId('social-text').innerText(),secondText);
+  await page.locator('.social-panel').screenshot({path:'.local/social-versions-mobile.png'});
   await page.getByRole('heading',{name:fixture.report.title}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await page.setViewportSize({width:320,height:740});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await page.getByRole('textbox',{name:'研究问题'}).fill('一个完全不同的新研究问题');assert.equal(await page.getByRole('heading',{name:'社交媒体文案',exact:true}).count(),0,'old content must disappear on new input');
   // A response arriving after cancelling or changing the question must not restore old content.
   await page.getByRole('button',{name:'开始分析'}).click();await page.getByTestId('social-text').waitFor();
+  assert.equal(await versions.getByRole('status').count(),0,'new question resets version history');
   await page.unroute('**/api/social-content');
   let releaseSocial, observedSocial;
   const socialGate=new Promise(resolve=>{releaseSocial=resolve;});
@@ -78,5 +146,5 @@ try {
     await lan.close();
   }
   assert.deepEqual(errors,[]);
-  console.log('Social UI passed: plain-text clipboard and paste, denied write/manual fallback, independent retry, 390/320px, stale responses after cancel/new input blocked'+(process.env.TEST_HTTP_BASE_URL?', actual LAN HTTP manual selection.':'.'));
+  console.log('Social UI passed: clipboard/manual copy of selected versions, retained history during pending/failed regeneration, three versions, arrows/keyboard/swipe, 390/320px, history reset and stale responses blocked'+(process.env.TEST_HTTP_BASE_URL?', actual LAN HTTP manual selection.':'.'));
 } finally {await browser.close();}
