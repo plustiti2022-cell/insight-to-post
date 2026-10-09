@@ -27,7 +27,7 @@ export type AnalysisDependencies = {
     sources: Source[],
     signal?: AbortSignal,
     observe?: Observer,
-    options?: { answerOnly?: boolean; answerFeedback?: readonly string[]; singleAttempt?: boolean;
+    options?: { answerOnly?: boolean; answerFeedback?: readonly string[]; singleAttempt?: boolean; validateCoreContent?: boolean;
       onBlock?: (block: AnswerBlock, index: number) => Promise<void> },
   ): Promise<ModelUsage & { draft: Draft; warnings: string[] }>;
   validateReport(
@@ -48,6 +48,7 @@ export type AnalysisDependencies = {
   ): string;
 };
 export type AnalysisInput = {
+  validateCoreContent?: boolean;
   idea: string;
   signal?: AbortSignal;
   observe?: Observer;
@@ -55,6 +56,7 @@ export type AnalysisInput = {
   socialTargetLength: number;
 };
 export type WorkflowState = {
+  validateCoreContent: boolean;
   research: Research;
   draft: Draft;
   reportFailed: boolean;
@@ -77,8 +79,9 @@ export type Node = (
 export function emptyDraft(idea: string): Draft {
   return { title: idea, summary: [], cards: [], limitations: [] };
 }
-export function initialState(idea: string): WorkflowState {
+export function initialState(idea: string, validateCoreContent = true): WorkflowState {
   return {
+    validateCoreContent,
     research: {
       sources: [],
       searchCalls: 0,

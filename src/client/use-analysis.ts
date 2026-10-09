@@ -59,7 +59,7 @@ export function useAnalysis() {
             if (controller.current !== active || active.signal.aborted) return;
             if (event.type === "opening") setOpening(value => value + event.text);
             if (event.type === "progress") setProgress(analysisProgress[event.stage]);
-            if (event.type === "report-start") setReportPreview({ attempt: event.attempt, blocks: [], sources: event.sources });
+            if (event.type === "report-start") setReportPreview({ attempt: event.attempt, blocks: [], sources: event.sources, coreValidation: event.coreValidation });
             if (event.type === "report-block") setReportPreview(value =>
               value?.attempt === event.attempt && value.blocks.length === event.index
                 ? { ...value, blocks: [...value.blocks, event.block] } : value);

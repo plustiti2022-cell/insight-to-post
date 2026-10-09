@@ -41,6 +41,24 @@ export const draftSchema = z.object({
   cards: z.array(cardSchema).max(5),
   limitations: z.array(z.string().max(400)).max(8),
 });
+// 展示与签名快照只检查可渲染的数据类型，不把正文长度/布局作为发布门槛。
+export const displayStatementSchema = statementSchema.extend({
+  text: z.string(),
+  label: z.string().optional(),
+  references: z.array(referenceSchema),
+});
+export const displayCardSchema = z.object({
+  claimId: z.string().optional(),
+  label: z.string(), value: z.string(), unit: z.string(), explanation: z.string(),
+  period: z.string(), scope: z.string(), valueEvidence: z.string(),
+  unitEvidence: z.string(), timeEvidence: z.string(), references: z.array(referenceSchema),
+});
+export const displayDraftSchema = draftSchema.extend({
+  summary: z.array(displayStatementSchema),
+  answerBlocks: z.array(displayStatementSchema).optional(),
+  cards: z.array(displayCardSchema),
+  limitations: z.array(z.string()),
+});
 export type Reference = z.infer<typeof referenceSchema>;
 export type AnswerBlock = z.infer<typeof statementSchema>;
 export type Card = z.infer<typeof cardSchema>;
@@ -109,6 +127,7 @@ export type SocialImageResult = {
   durationMs: number;
 };
 export type Analysis = {
+  coreValidation?: boolean;
   status: "complete" | "partial" | "insufficient";
   report: Draft & { generatedAt: string };
   sources: PublicSource[];
@@ -131,16 +150,17 @@ export type Analysis = {
 export type AnalysisStage =
   | "search" | "supplement" | "prepareEvidence" | "generate"
   | "validate" | "recoverAnswer" | "completeReport" | "social";
-// 段落通过本地检查后可预览；只有 report 才确认整篇报告。
+// 段落完整后可预览；coreValidation 标明是否执行内容校验，report 确认生成结束。
 export type AnalysisEvent =
   | { type: "opening"; text: string }
   | { type: "progress"; stage: AnalysisStage }
-  | { type: "report-start"; attempt: 1 | 2; sources: PublicSource[] }
+  | { type: "report-start"; attempt: 1 | 2; sources: PublicSource[]; coreValidation?: boolean }
   | { type: "report-block"; attempt: 1 | 2; index: number; block: AnswerBlock }
   | { type: "report"; analysis: Analysis }
   | { type: "result"; analysis: Analysis }
   | { type: "error"; error: { code: string; message: string } };
 export type ReportPreview = {
+  coreValidation?: boolean;
   attempt: 1 | 2;
   blocks: AnswerBlock[];
   sources: PublicSource[];

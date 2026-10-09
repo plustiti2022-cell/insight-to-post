@@ -10,7 +10,7 @@ import { callQwen, outputText } from "../providers/qwen";
 import { AnalysisError, parseModelJson, rethrowCancellation } from "../runtime";
 import { reportPrompt } from "../prompts";
 import { evidenceRegistry, hydrateReferences, validAnswerEvidence } from "../../core/evidence";
-import { answerStructureIssues, hasOpeningSummary, presentAnswerBlock } from "../../core/report";
+import { answerStructureIssues, hasOpeningSummary, presentAnswerBlock, readAnswerForDisplay, readReportForDisplay } from "../../core/report";
 import { reportBlockReader } from "../report-stream";
 import { createLogger, failureDetails } from "../logger";
 const logger = createLogger("report");
@@ -20,7 +20,7 @@ export async function generateReport(
   sources: Source[],
   signal?: AbortSignal,
   observe?: (stage: string, data: unknown) => Promise<void>,
-  options: { answerOnly?: boolean; answerFeedback?: readonly string[]; singleAttempt?: boolean;
+  options: { answerOnly?: boolean; answerFeedback?: readonly string[]; singleAttempt?: boolean; validateCoreContent?: boolean;
     onBlock?: (block: AnswerBlock, index: number) => Promise<void> } = {},
 ) {
   return logger.run("generate", { sourceCount: sources.length, answerOnly: Boolean(options.answerOnly) }, async () => {
@@ -33,10 +33,16 @@ export async function generateReport(
       }));
     let totalTokens = 0;
     let correction = "";
-    const attempts = options.answerOnly || options.singleAttempt || options.onBlock ? 1 : 2;
+    const validateCoreContent = options.validateCoreContent !== false;
+    const attempts = !validateCoreContent || options.answerOnly || options.singleAttempt || options.onBlock ? 1 : 2;
     for (let attempt = 0; attempt < attempts; attempt++) {
       let streamIssue = "";
       const readBlock = reportBlockReader(async (raw, index) => {
+        if (!validateCoreContent) {
+          signal?.throwIfAborted();
+          await options.onBlock?.(readAnswerForDisplay(raw, records, index), index);
+          return;
+        }
         const hydrated = hydrateReferences({ summary: [raw], cards: [] }, records) as { summary: unknown[] };
         const item = statementSchema.parse(hydrated.summary[0]);
         const block = presentAnswerBlock(item, index);
@@ -61,12 +67,14 @@ export async function generateReport(
           model: process.env.QWEN_REPORT_MODEL ?? "qwen3.8-max",
           ...(options.onBlock ? { onDelta: async (text: string) => {
             signal?.throwIfAborted();
-            // 失效段落不公开；继续读完以取得用量，由工作流统一重试一次。
+            // 停止发布无法解析或校验失败的段落，继续读取以取得用量。
             if (streamIssue) return;
             try { await readBlock(text); }
             catch (error) {
               rethrowCancellation(error, signal);
-              streamIssue = "流式段落的结构、引用或数字未通过校验，须重新生成完整回答。";
+              streamIssue = validateCoreContent
+                ? "流式段落的结构、引用或数字未通过校验，须重新生成完整回答。"
+                : "模型返回的流式段落无法解析。";
             }
           } } : {}),
         },
@@ -76,6 +84,11 @@ export async function generateReport(
       await observe?.(`report-output-${attempt}`, { text: outputText(result) });
       try {
         if (streamIssue) throw new Error(streamIssue);
+        if (!validateCoreContent) {
+          const draft = readReportForDisplay(parseModelJson(outputText(result)), records, idea);
+          logger.info("validation.skipped", { summaryCount: draft.summary.length, cardCount: draft.cards.length });
+          return { draft, warnings: [], modelCalls: attempt + 1, totalTokens };
+        }
         const input = z
           .object({
             summary: z.array(z.unknown()).min(1).max(30),
@@ -122,7 +135,8 @@ export async function generateReport(
           totalTokens,
         };
       } catch (error) {
-        logger.warn("validation.failed", { attempt: attempt + 1, willRetry: attempt + 1 < attempts, ...failureDetails(error) });
+        logger.warn(validateCoreContent ? "validation.failed" : "parsing.failed",
+          { attempt: attempt + 1, willRetry: attempt + 1 < attempts, ...failureDetails(error) });
         // 只提供结构字段路径，不把无效上游原文传给下一轮。
         correction =
           error && typeof error === "object" && "issues" in error
@@ -141,7 +155,9 @@ export async function generateReport(
     }
     throw new AnalysisError(
       "INVALID_REPORT",
-      `模型未能生成包含完整回答的报告。校验问题：${correction}。`,
+      validateCoreContent
+        ? `模型未能生成包含完整回答的报告。校验问题：${correction}。`
+        : "模型未返回可解析的正文，请重新分析。",
       502,
       { modelCalls: attempts, totalTokens },
     );

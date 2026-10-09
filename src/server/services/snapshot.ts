@@ -1,11 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { draftSchema, type Draft, type Source } from "../../core/contracts";
+import { displayDraftSchema, type Draft, type Source } from "../../core/contracts";
 import { AnalysisError } from "../runtime";
 import { reportCoverage } from "../../core/sources";
 import { socialContentPrompt } from "../prompts";
 const snapshotSchema = z.object({
-  report: draftSchema,
+  report: displayDraftSchema,
   targetLength: z.number().min(100).max(25000).default(280),
   prompt: z.string().min(1).max(20000),
   expires: z.number(),

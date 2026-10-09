@@ -1,5 +1,5 @@
 import type { Analysis, AnalysisEvent, AnalysisStage } from "../core/contracts";
-import { statementSchema } from "../core/contracts";
+import { displayStatementSchema } from "../core/contracts";
 
 export const analysisProgress: Record<AnalysisStage, string> = {
   search: "正在规划检索、提取正文并评估覆盖",
@@ -45,7 +45,7 @@ export async function readAnalysisStream(
     } else if (event.type === "report-block") {
       // 已被替换的轮次不能恢复到页面。
       if (event.attempt < attempt || confirmed) return;
-      if (!attempt || event.attempt !== attempt || event.index !== blockIndex || !statementSchema.safeParse(event.block).success)
+      if (!attempt || event.attempt !== attempt || event.index !== blockIndex || !displayStatementSchema.safeParse(event.block).success)
         throw new Error("报告段落格式异常，请重试。");
       blockIndex++;
     } else if (event.type === "report" || event.type === "result") {

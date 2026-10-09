@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { Analysis, ReportPreview } from "@/core/contracts";
 import { CoreAnswer } from "./core-answer";
 
-// 每轮使用独立 key 挂载。只有已通过段落检查的完整文本会进入播放队列。
+// 每轮使用独立 key 挂载。完整段落进入播放队列；显示实际校验模式。
 export function ReportPreviewView({ preview, title, confirmed, onComplete }: {
   preview: ReportPreview; title: string; confirmed: Analysis | null; onComplete: () => void;
 }) {
@@ -46,7 +46,9 @@ export function ReportPreviewView({ preview, title, confirmed, onComplete }: {
     <div className="report-header"><span className="eyebrow">RESEARCH BRIEF / 研究简报</span>
       <span className="status-badge partial">{confirmed ? "正在展示报告" : preview.attempt === 2 ? "正在重新生成" : "正在生成"}</span></div>
     <h2 id="preview-title">{title}</h2>
-    <p className="report-preview-status" role="status">{confirmed ? "完整报告已通过校验。" :
+    <p className="report-preview-status" role="status">{preview.coreValidation === false
+      ? confirmed ? "完整报告已生成。" : "正在生成正文…"
+      : confirmed ? "完整报告已通过校验。" :
       preview.blocks.length ? "段落已核对引用，完整报告仍在生成与校验中。" :
         preview.attempt === 2 ? "部分内容未通过校验，正在重新生成。" : "正在生成并核对第一段内容…"}</p>
     {preview.blocks.length > 0 && <CoreAnswer report={{ summary: preview.blocks }} sources={preview.sources}

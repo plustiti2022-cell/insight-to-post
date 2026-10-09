@@ -121,7 +121,7 @@ export const nodes: Record<NodeId, Node> = {
       eligibleForGeneration(state.research),
       signal,
       observe,
-      { singleAttempt: true, ...(onEvent ? { onBlock: async (block, index) => {
+      { singleAttempt: true, validateCoreContent: state.validateCoreContent, ...(onEvent ? { onBlock: async (block, index) => {
         signal?.throwIfAborted();
         await onEvent({ type: "report-block", attempt: 1, index, block });
       } } : {}) },
@@ -196,10 +196,12 @@ export const nodes: Record<NodeId, Node> = {
     const sources = eligibleForGeneration(state.research);
     if (!sources.length)
       throw new AnalysisError("NO_EVIDENCE", "本次未取得可用文章正文，无法完成研究报告。请重新分析或提供可公开访问的文章链接。");
-    if (state.reportFailed || answerStructureIssues(state.draft.summary).length)
-      throw new AnalysisError("INVALID_REPORT", "核心研究内容在自动重试一次后仍未完整生成，请重新分析。");
-    const draft = completeReport(state.draft, sources);
-    if (answerStructureIssues(draft.answerBlocks ?? []).length)
+    if (state.reportFailed || (state.validateCoreContent && answerStructureIssues(state.draft.summary).length))
+      throw new AnalysisError("INVALID_REPORT", state.validateCoreContent
+        ? "核心研究内容在自动重试一次后仍未完整生成，请重新分析。"
+        : "核心正文生成未完成或无法解析，请重新分析。");
+    const draft = completeReport(state.draft, sources, state.validateCoreContent);
+    if (state.validateCoreContent && answerStructureIssues(draft.answerBlocks ?? []).length)
       throw new AnalysisError("INVALID_REPORT", "核心研究内容在自动重试一次后仍未完整生成，请重新分析。");
     return { draft };
   },

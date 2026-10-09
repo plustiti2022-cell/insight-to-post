@@ -149,11 +149,11 @@ try {
     { presentation: 'conclusion', text: '结论需要结合研究的适用范围理解。', references: previewRefs },
   ];
   const previewAnalysis = { ...partial, sources: [previewSource], report: { ...partial.report, summary: blocks, answerBlocks: blocks } };
-  const begin = async question => {
+  const begin = async (question, coreValidation) => {
     await field.fill(question);
     await start.click();
     const res = await nextRequest();
-    send(res, { type: 'report-start', attempt: 1, sources: [previewSource] });
+    send(res, { type: 'report-start', attempt: 1, sources: [previewSource], coreValidation });
     await page.getByTestId('report-preview').waitFor();
     return res;
   };
@@ -220,10 +220,43 @@ try {
   await page.getByRole('button', { name: '取消', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '分析已取消。' }).waitFor();
   response.end();
+  // Experimental mode keeps incomplete layouts and long text without claiming validation.
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  response = await begin('关闭核心校验后仍播放正文和真实信源', false);
+  const unchecked = { presentation: 'paragraph', text: '模型给出的99%没有本地数字核验，缺少首答和结论也继续展示。完整段落收到后逐字播放，结束后出现原文标签。', references: previewRefs };
+  await page.getByText('正在生成正文…', { exact: true }).waitFor();
+  send(response, { type: 'report-block', attempt: 1, index: 0, block: unchecked });
+  await page.locator('.answer-cursor').waitFor();
+  assert.equal(await page.locator('.answer-source').count(), 0);
+  assert.doesNotMatch(await page.getByTestId('report-preview').innerText(), /通过校验|已核对引用|生成与校验/);
+  await page.locator('.answer-source').waitFor();
+  assert.equal(await page.locator('.answer-source').getAttribute('href'), previewSource.url);
+  await page.getByTestId('report-preview').screenshot({ path: '.local/stream-unvalidated.png' });
+  const uncheckedAnalysis = { ...partial, coreValidation: false, sources: [previewSource], report: {
+    ...partial.report, summary: [unchecked], answerBlocks: [unchecked], limitations: ['本实验分支已关闭核心内容校验。'],
+  } };
+  send(response, { type: 'report', analysis: uncheckedAnalysis });
+  send(response, { type: 'result', analysis: uncheckedAnalysis });
+  response.end();
+  await page.getByTestId('report-preview').waitFor({ state: 'detached' });
+  await page.getByText(unchecked.text, { exact: false }).waitFor();
+  await page.getByRole('button', { name: '取消', exact: true }).waitFor({ state: 'detached' });
+  assert.deepEqual((await page.getByRole('alert').allTextContents()).filter(text => text.trim()), []);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  response = await begin('关闭校验后长段落和长标题可直接展示', false);
+  const longBlock = { ...unchecked, presentation: 'bullet', label: '长标题'.repeat(40), text: '实验长正文。'.repeat(600) };
+  send(response, { type: 'report-block', attempt: 1, index: 0, block: longBlock });
+  await page.getByText(longBlock.text, { exact: false }).waitFor();
+  assert.equal(await page.locator('.answer-source').count(), 1);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: '分析已取消。' }).waitFor();
+  response.end();
   assert.deepEqual(errors, []);
   assert.equal(imageRequests, 2, 'unconfirmed, failed and cancelled previews cannot trigger images');
   await context.close();
-  console.log(`Streaming UI passed: mock first text ${firstTextMs}ms, validated paragraph typing, delayed source labels, queued confirmation, retry reset, reduced motion, split UTF-8, 390/320px, cancellation, stale events and truncated streams.`);
+  console.log(`Streaming UI passed: mock first text ${firstTextMs}ms, paragraph typing in both validation modes, unchecked long text and incomplete layout, delayed source labels, queued confirmation, retry reset, reduced motion, split UTF-8, 390/320px, cancellation, stale events and truncated streams.`);
 } finally {
   await browser.close();
   server.closeAllConnections();

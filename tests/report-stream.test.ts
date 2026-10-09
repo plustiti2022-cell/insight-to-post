@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { reportBlockReader } from "../src/server/report-stream";
 import { generateReport } from "../src/server/services/report";
 import { AnalysisError } from "../src/server/runtime";
-import { analysisDependencies, runAnalysisGraph, type AnalysisDependencies } from "../src/server/workflow/run";
+import { analyze, analysisDependencies, runAnalysisGraph, type AnalysisDependencies } from "../src/server/workflow/run";
+import { signSocialSnapshot, readSocialSnapshot } from "../src/server/services/snapshot";
 import { reportBasedSocial } from "../src/core/social";
 import { completeReport } from "../src/core/report";
 import type { AnswerBlock, AnalysisEvent, Source } from "../src/core/contracts";
@@ -30,11 +31,12 @@ function responseFor(value: unknown, completed = true) {
 }
 async function mocked(run: () => Promise<void>) {
   const fetch = globalThis.fetch;
-  const names = ["QWEN_API_KEY", "QWEN_MODEL", "QWEN_REPORT_MODEL"] as const;
+  const names = ["QWEN_API_KEY", "QWEN_MODEL", "QWEN_REPORT_MODEL", "REPORT_CORE_VALIDATION"] as const;
   const prior = names.map(name => process.env[name]);
   process.env.QWEN_API_KEY = "test-only";
   process.env.QWEN_MODEL = "general-model-must-not-override-report";
   delete process.env.QWEN_REPORT_MODEL;
+  delete process.env.REPORT_CORE_VALIDATION;
   try { await run(); }
   finally {
     globalThis.fetch = fetch;
@@ -182,4 +184,110 @@ test("JSON report requests use the independent max model without requesting SSE"
     };
     assert.equal((await generateReport("研究问题", [source])).draft.summary.length, 3);
   }
+}));
+
+test("disabled core validation publishes long, unreferenced and incomplete answers without repair", () => mocked(async () => {
+  for (const block of [
+    { ...raw.summary[0], text: "长首答".repeat(1100), label: "长标题".repeat(40) },
+    { ...raw.summary[0], text: "没有证据锚点的99%与2026年也保留。" },
+    { text: "缺少引用和完整回答布局仍保留正文。" },
+    { ...raw.summary[1], label: "", references: [{ sourceId: "unknown", evidenceId: "not-provided" }] },
+    { text: "提供的原文线索也不再按旧规则删除。" },
+  ]) {
+    let calls = 0;
+    const emitted: AnswerBlock[] = [];
+    globalThis.fetch = async () => { calls++; return responseFor({ summary: [block], cards: [{ label: "指标", value: "~99%" }] }); };
+    const result = await generateReport("研究问题", [source], undefined, undefined, {
+      validateCoreContent: false, onBlock: async value => { emitted.push(value); },
+    });
+    assert.equal(calls, 1);
+    const displayText = block.text.replace(/\*/g, "");
+    assert.equal(result.draft.summary[0].text, displayText);
+    assert.deepEqual(emitted, result.draft.summary);
+    assert.equal(result.draft.cards[0].value, "~99%", "metric anchors are also bypassed");
+    const report = completeReport(result.draft, [source], false);
+    assert.equal(report.answerBlocks?.length, 1);
+    assert.equal(report.answerBlocks?.[0].text, displayText);
+    assert.doesNotMatch(report.summary[0].text, /本次未能生成简短总结|已核验/);
+    assert.ok(report.limitations.some(text => text.includes("已关闭核心内容校验")));
+  }
+}));
+
+test("disabled workflow skips validation and recovery while preserving text and source mapping", () => mocked(async () => {
+  const deps = dependencies();
+  deps.validateReport = () => { assert.fail("core validator must not be called"); };
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return responseFor({ summary: [
+    { text: "有未知引用也保留这段99%的正文。", references: [{ sourceId: "S1", evidenceId: "missing" }] },
+    { ...raw.summary[1], label: "" },
+  ] }); };
+  const events: AnalysisEvent[] = [];
+  const result = await runAnalysisGraph({ idea: "研究问题", socialTargetLength: 2000, validateCoreContent: false,
+    onEvent: async event => { events.push(event); },
+  }, deps);
+  assert.equal(calls, 1);
+  assert.equal(result.coreValidation, false);
+  assert.equal(result.report.answerBlocks?.length, 2);
+  assert.match(result.report.summary[0].text, /99%/);
+  assert.deepEqual(result.report.answerBlocks?.[0].references, []);
+  assert.equal(result.report.answerBlocks?.[1].references[0].sourceId, "S1");
+  assert.equal(result.sources[0].url, source.url);
+  assert.ok(result.socialContent);
+  assert.deepEqual(events.filter(event => event.type === "progress").map(event => event.stage),
+    ["search", "prepareEvidence", "generate", "completeReport", "social"]);
+  assert.equal(events.filter(event => event.type === "report-block").length, 2);
+  assert.equal(events.filter(event => event.type === "report-start").length, 1);
+}));
+
+test("disabled mode still rejects broken JSON, truncated streams and empty responses without retrying", () => mocked(async () => {
+  for (const kind of ["json", "truncated", "empty", "markup-only"] as const) {
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls++;
+      return kind === "json" ? responseFor("invalid JSON") :
+        kind === "truncated" ? responseFor(raw, false) :
+        responseFor({ summary: kind === "markup-only" ? [{ text: "<b>**</b>" }] : [] });
+    };
+    const deps = dependencies();
+    deps.generateSocialContent = async () => { assert.fail("unreadable model output cannot produce social content"); };
+    const events: AnalysisEvent[] = [];
+    await assert.rejects(runAnalysisGraph({ idea: "研究问题", socialTargetLength: 2000, validateCoreContent: false,
+      onEvent: async event => { events.push(event); },
+    }, deps), { code: "INVALID_REPORT" });
+    assert.equal(calls, 1);
+    assert.equal(events.some(event => event.type === "report"), false);
+    assert.equal(events.some(event => event.type === "report-start" && event.attempt === 2), false);
+  }
+}));
+
+test("public analyze defaults to disabled core validation and supports explicitly restoring strict mode", () => mocked(async () => {
+  const prior = { ...analysisDependencies };
+  try {
+    Object.assign(analysisDependencies, dependencies());
+    analysisDependencies.validateReport = () => { assert.fail("default endpoint must bypass core validation"); };
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls++;
+      return Response.json({ status: "completed", output_text: JSON.stringify({ summary: [{ text: "缺少引用但保留99%这段回答。" }] }) });
+    };
+    const result = await analyze("公开入口的测试问题");
+    assert.equal(result.coreValidation, false);
+    assert.equal(calls, 1);
+    assert.match(result.report.summary[0].text, /99%/);
+    process.env.REPORT_CORE_VALIDATION = "true";
+    await assert.rejects(analyze("公开入口的测试问题"), { code: "INVALID_REPORT" });
+    assert.equal(calls, 3, "explicit strict mode restores the two-attempt budget");
+  } finally { Object.assign(analysisDependencies, prior); }
+}));
+
+test("signed social regeneration snapshots accept long experimental paragraphs without weakening signature checks", () => mocked(async () => {
+  globalThis.fetch = async () => Response.json({ output_text: JSON.stringify({
+    summary: [{ presentation: "lead", label: "标题".repeat(60), text: "正文".repeat(1600), references }],
+  }) });
+  const result = await generateReport("研究问题", [source], undefined, undefined, { validateCoreContent: false });
+  const report = completeReport(result.draft, [source], false);
+  const token = signSocialSnapshot(report, [source], 2000);
+  const restored = readSocialSnapshot(token);
+  assert.deepEqual(restored.report, report);
+  assert.throws(() => readSocialSnapshot(token.slice(0, -1) + (token.at(-1) === "a" ? "b" : "a")), { code: "INVALID_SNAPSHOT" });
 }));

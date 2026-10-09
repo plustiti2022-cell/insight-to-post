@@ -65,7 +65,7 @@ export async function runAnalysisGraph(
       });
       input.signal?.throwIfAborted();
     }
-    let state = initialState(input.idea);
+    let state = initialState(input.idea, input.validateCoreContent);
     const generatedAt = new Date().toISOString();
     let current: NodeId | typeof END = START;
     // 有限工作流；未来增加回边时，必须显式声明预算，避免意外无限调用。
@@ -79,6 +79,7 @@ export async function runAnalysisGraph(
       await input.onEvent?.({ type: "progress", stage: node });
       if (node === "generate" || node === "recoverAnswer") {
         await input.onEvent?.({ type: "report-start", attempt: node === "generate" ? 1 : 2,
+          coreValidation: state.validateCoreContent,
           sources: publicSources(eligibleForGeneration(state.research), { ...state.draft, summary: [], cards: [] }),
         });
       }
@@ -119,6 +120,7 @@ function publicAnalysis(
   const sources = eligibleForGeneration(research);
   const coverage = reportCoverage(draft, sources);
   return {
+    coreValidation: state.validateCoreContent,
     status: social ? "complete" : "partial",
     report: {
       ...draft,
@@ -160,5 +162,8 @@ export function analyze(
   socialTargetLength = targetLength(Number(process.env.X_TARGET_LENGTH ?? 280)),
   onEvent?: AnalysisInput["onEvent"],
 ) {
-  return runAnalysisGraph({ idea, signal, observe, socialTargetLength, onEvent });
+  // 此实验分支默认关闭核心校验；只有显式设为 true 才恢复严格模式。
+  return runAnalysisGraph({ idea, signal, observe, socialTargetLength, onEvent,
+    validateCoreContent: process.env.REPORT_CORE_VALIDATION === "true",
+  });
 }

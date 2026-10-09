@@ -18,7 +18,7 @@ export const edges: Record<NodeId, Edge> = {
     eligibleForGeneration(state.research).length
       ? "generate"
       : "completeReport",
-  generate: (state) => (state.reportFailed ? "recoverAnswer" : "validate"),
+  generate: (state) => !state.validateCoreContent ? "completeReport" : (state.reportFailed ? "recoverAnswer" : "validate"),
   validate: (state) =>
     state.reportFailed || answerStructureIssues(state.draft.summary).length
       ? "recoverAnswer"
