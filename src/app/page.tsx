@@ -16,6 +16,7 @@ import { demo } from "@/client/demo";
 import { useAnalysis } from "@/client/use-analysis";
 import { ReportView } from "@/components/report-view";
 import { ReportPreviewView } from "@/components/report-preview";
+import { OpeningMessage } from "@/components/opening-message";
 import { SourceSheet, type Selection } from "@/components/source-sheet";
 const examples = [
   "AI 编程工具会让初级工程师岗位减少吗？",
@@ -34,6 +35,7 @@ export default function Home() {
     elapsed,
     progress,
     opening,
+    socialPreview,
     reportPreview,
     finishReportPreview,
     start,
@@ -191,9 +193,7 @@ export default function Home() {
               </div>
             )}
             {opening && (
-              <div className="opening-message" data-testid="opening-text" aria-live="polite">
-                {opening}
-              </div>
+              <OpeningMessage text={opening} paused={!loading && Boolean(error)}/>
             )}
             {loading && (
               <div className="loading-panel" role="status" aria-live="polite">
@@ -302,6 +302,7 @@ export default function Home() {
                 isDemo={isDemo}
                 onSource={onSource}
                 pending={loading}
+                socialPreview={socialPreview}
               />
             </>
           )}

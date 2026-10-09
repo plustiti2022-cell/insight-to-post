@@ -1,6 +1,6 @@
-// 只提取根对象 summary 数组内已闭合的对象。完整 JSON 仍由报告服务最终解析。
+// 只提取根对象指定数组内已闭合的对象。完整 JSON 仍由业务服务最终解析。
 // 逐字符维护字符串转义和嵌套边界，不依赖字段顺序或网络块边界。
-export function reportBlockReader(onBlock: (raw: unknown, index: number) => Promise<void>) {
+export function modelObjectArrayReader(field: "summary" | "paragraphs", onBlock: (raw: unknown, index: number) => Promise<void>) {
   let text = "", offset = 0, stringStart = -1, escaped = false;
   let rootKey = "", expectKey = true, keyString = false;
   let summary = false, seenSummary = false, blockStart = -1, index = 0;
@@ -20,13 +20,13 @@ export function reportBlockReader(onBlock: (raw: unknown, index: number) => Prom
       }
       if (!stack.length && char !== "{") continue;
       if (summary && stack.length === 2 && !/[\s,{\]]/.test(char))
-        throw new Error("summary中的段落必须为对象");
+        throw new Error(`${field}中的段落必须为对象`);
       if (char === '"') {
         stringStart = offset; escaped = false;
         keyString = stack.length === 1 && expectKey;
       } else if (char === "{" || char === "[") {
-        if (char === "[" && stack.length === 1 && rootKey === "summary") {
-          if (seenSummary) throw new Error("报告包含重复summary字段");
+        if (char === "[" && stack.length === 1 && rootKey === field) {
+          if (seenSummary) throw new Error(`模型包含重复${field}字段`);
           summary = seenSummary = true;
         }
         if (summary && stack.length === 2 && char === "{") blockStart = offset;

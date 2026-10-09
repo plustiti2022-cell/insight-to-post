@@ -28,4 +28,14 @@ export const POST = jsonEndpoint(
     tooLargeMessage: "重试数据过长。",
     failureMessage: "文案重试失败，请稍后重试。",
   },
+  async (input, signal, emit) => {
+    const snapshot = readSocialSnapshot(input.token);
+    await emit({ type: "social-start" });
+    const result = await generateSocialContent(snapshot.report, snapshot.sources, signal, undefined,
+      snapshot.targetLength, { originalPrompt: snapshot.prompt, onBlock: async (text, index) => {
+        signal.throwIfAborted();
+        await emit({ type: "social-block", text, index });
+      } });
+    return { type: "social-result", result };
+  },
 );

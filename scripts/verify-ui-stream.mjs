@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 const base = process.env.TEST_BASE_URL || 'http://localhost:3001';
 const coverage = { requiredSources: 0, eligibleSourceCount: 0, citedSourceCount: 0, citedSourceTypes: [], requirementMet: true };
 const partial = { status: 'partial', report: { title: '分阶段流式研究测试', summary: [{ presentation: 'lead', text: '核心观察已经通过校验。', references: [] }], answerBlocks: [{ presentation: 'lead', text: '核心观察已经通过校验。', references: [] }], cards: [], limitations: [], generatedAt: '2026-10-07T00:00:00Z' }, sources: [], warnings: [], coverage, diagnostics: { durationMs: 100, searchCalls: 1, extractorCalls: 0, modelCalls: 1, totalTokens: 10, sourceTypes: 0 } };
-const complete = { ...partial, status: 'complete', socialContent: { status: 'ready', text: '稍后返回的社交文案。', characterCount: 11, weightedLength: 22, targetLength: 2000, warnings: [], claimReferences: [], coverage } };
+const socialText = '稍后返回的社交文案。' + '新工具改变部分任务，也让判断结果和培养新人变得更重要。'.repeat(3);
+const complete = { ...partial, status: 'complete', socialRetryToken: 'mock-stream-token', socialContent: { status: 'ready', text: socialText, characterCount: socialText.length, weightedLength: socialText.length * 2, targetLength: 2000, warnings: [], claimReferences: [], coverage } };
 const requests = [];
 let notify;
 const server = createServer(async (req, res) => {
@@ -45,7 +46,7 @@ try {
   // Route only analysis fetch to a local mock HTTP server that sends real incremental bytes.
   await context.addInitScript(url => {
     const originalFetch = window.fetch.bind(window);
-    window.fetch = (input, init) => originalFetch(input === '/api/analyze' ? url : input, init);
+    window.fetch = (input, init) => originalFetch(input === '/api/analyze' || input === '/api/social-content' ? url : input, init);
   }, mockUrl);
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
@@ -58,13 +59,17 @@ try {
   let response = await nextRequest();
   // Only received model text is visible; no canned text is used to meet TTFT.
   assert.equal(await page.getByTestId('opening-text').count(), 0);
-  const openingBytes = Buffer.from(`data: ${JSON.stringify({ type: 'opening', text: '我先看看这个问题。' })}\n\n`);
+  const openingText = '我先看看这个问题。' + '先关注岗位需求，再看任务如何变化，并结合不同资料的适用范围来判断。'.repeat(4);
+  const openingBytes = Buffer.from(`data: ${JSON.stringify({ type: 'opening', text: openingText })}\n\n`);
   const openingSplit = openingBytes.indexOf(Buffer.from('我')) + 1;
   response.write(openingBytes.subarray(0, openingSplit));
   response.write(openingBytes.subarray(openingSplit));
-  await page.getByTestId('opening-text').filter({ hasText: '我先看看这个问题。' }).waitFor();
+  await page.waitForFunction(() => document.querySelector('[data-testid="opening-text"]')?.textContent?.includes('我'));
   const firstTextMs = Math.round(performance.now() - clickedAt);
   assert.ok(firstTextMs < 2000, `mock click-to-first-text took ${firstTextMs}ms`);
+  const firstOpening = await page.getByTestId('opening-text').textContent();
+  assert.ok(firstOpening.length < openingText.length, 'a large upstream chunk must be played progressively');
+  await page.waitForFunction(text => document.querySelector('[data-testid="opening-text"]')?.textContent === text, openingText);
   assert.equal(await page.locator('.report').count(), 0);
   send(response, { type: 'opening', text: '\n先关注岗位需求，再看任务变化。' });
   await page.getByTestId('opening-text').filter({ hasText: '先关注岗位需求，再看任务变化。' }).waitFor();
@@ -81,11 +86,20 @@ try {
   assert.equal(await page.getByRole('button', { name: '取消', exact: true }).count(), 1);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.locator('.report').screenshot({ path: '.local/stream-report-before-social.png' });
+  send(response, { type: 'social-start' });
+  send(response, { type: 'social-block', index: 0, text: socialText });
+  await page.getByTestId('social-preview').locator('.answer-cursor').waitFor();
+  assert.ok((await page.getByTestId('social-preview').textContent()).length < socialText.length);
+  assert.equal(await page.getByTestId('social-text').count(), 0);
+  assert.equal(imageRequests, 0);
+  await page.getByRole('button', { name: '一键复制', exact: true }).isDisabled().then(disabled => assert.equal(disabled, true));
+  await page.locator('.social-panel').screenshot({ path: '.local/stream-social-typing.png' });
   // Split a Chinese UTF-8 character across writes to exercise the browser decoder.
   const bytes = Buffer.from(`data: ${JSON.stringify({ type: 'result', analysis: complete })}\n\n`);
   const split = bytes.indexOf(Buffer.from('稍')) + 1;
   response.write(bytes.subarray(0, split));
   response.end(bytes.subarray(split));
+  assert.equal(await page.getByTestId('social-preview').count(), 1, 'completion preserves queued animation');
   await page.getByTestId('social-text').waitFor();
   assert.equal(await page.getByTestId('social-text').innerText(), complete.socialContent.text);
   await page.getByRole('alert').filter({ hasText: '流式配图测试使用模拟响应。' }).waitFor();
@@ -94,17 +108,47 @@ try {
   await page.setViewportSize({ width: 320, height: 740 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
 
+  // Independent regeneration uses real incremental HTTP, preserving history and images.
+  await page.getByRole('button', { name: '重新生成文案', exact: true }).click();
+  response = await nextRequest();
+  const retryText = '重新生成的社交文案。' + '理解资料以后，也可以从团队协作和检查结果的角度组织表达。'.repeat(3);
+  send(response, { type: 'social-start' });
+  send(response, { type: 'social-block', index: 0, text: retryText });
+  await page.getByTestId('social-preview').locator('.answer-cursor').waitFor();
+  assert.equal(await page.getByTestId('social-text').innerText(), socialText, 'old version stays available while new draft streams');
+  assert.equal(imageRequests, 1);
+  send(response, { type: 'social-result', result: { socialContent: { ...complete.socialContent, text: retryText }, modelCalls: 1, totalTokens: 12, durationMs: 20 } });
+  response.end();
+  assert.equal(await page.getByTestId('social-text').innerText(), socialText, 'confirmation does not reveal the entire new version at once');
+  await page.getByTestId('social-preview').waitFor({ state: 'detached' });
+  assert.equal(await page.getByTestId('social-text').innerText(), retryText);
+  assert.equal(imageRequests, 1, 'regeneration does not automatically regenerate images');
+  await page.getByRole('button', { name: '重新生成文案', exact: true }).click();
+  response = await nextRequest();
+  send(response, { type: 'social-start' });
+  send(response, { type: 'social-block', index: 0, text: retryText });
+  await page.getByTestId('social-preview').waitFor();
+  send(response, { type: 'error', error: { code: 'INCOMPLETE', message: '模拟文案流式失败。' } }); response.end();
+  await page.getByRole('alert').filter({ hasText: '模拟文案流式失败。' }).waitFor();
+  assert.equal(await page.getByTestId('social-preview').count(), 0);
+  assert.equal(await page.getByTestId('social-text').innerText(), retryText);
+  await page.locator('.social-panel').screenshot({ path: '.local/stream-social-retry-preserved.png' });
+
   await field.fill('流式错误保留核心观察的测试');
   assert.equal(await page.getByTestId('opening-text').count(), 0);
   await start.click();
   response = await nextRequest();
   send(response, { type: 'report', analysis: partial });
   await page.getByText('核心观察已经通过校验。', { exact: true }).waitFor();
+  send(response, { type: 'social-start' });
+  send(response, { type: 'social-block', index: 0, text: socialText });
+  await page.getByTestId('social-preview').waitFor();
   send(response, { type: 'error', error: { code: 'INTERNAL', message: '模拟流式中途失败。' } });
   response.end();
   await page.getByRole('alert').filter({ hasText: '模拟流式中途失败。' }).waitFor();
   assert.equal(await page.locator('.report').count(), 1);
   assert.equal(await page.getByTestId('social-text').count(), 0);
+  assert.equal(await page.getByTestId('social-preview').count(), 0);
   await page.getByText('文案尚未完成，可重新分析。', { exact: true }).waitFor();
 
   await field.fill('流式取消后旧结果不能恢复');
@@ -112,8 +156,16 @@ try {
   response = await nextRequest();
   send(response, { type: 'report', analysis: partial });
   await page.getByText('核心观察已经通过校验。', { exact: true }).waitFor();
+  send(response, { type: 'opening', text: openingText });
+  send(response, { type: 'social-start' });
+  send(response, { type: 'social-block', index: 0, text: socialText });
+  await page.getByTestId('social-preview').waitFor();
   await page.getByRole('button', { name: '取消', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '分析已取消。' }).waitFor();
+  const cancelledOpening = await page.getByTestId('opening-text').textContent();
+  await page.waitForTimeout(100);
+  assert.equal(await page.getByTestId('opening-text').textContent(), cancelledOpening, 'cancel freezes the opening playback queue');
+  assert.equal(await page.getByTestId('social-preview').count(), 0);
   await field.fill('切换到一个完全不同的问题');
   send(response, { type: 'opening', text: '迟到的旧开场文字' });
   send(response, { type: 'result', analysis: complete });
@@ -124,10 +176,13 @@ try {
   await start.click();
   response = await nextRequest();
   send(response, { type: 'report', analysis: partial });
+  send(response, { type: 'social-start' });
+  send(response, { type: 'social-block', index: 0, text: socialText });
   response.end();
   await page.getByRole('alert').filter({ hasText: '连接中断，分析未完整完成，请重试。' }).waitFor();
   assert.equal(await page.locator('.report').count(), 1);
   assert.equal(await page.getByTestId('social-text').count(), 0);
+  assert.equal(await page.getByTestId('social-preview').count(), 0);
   // Opening failure is surfaced directly, without placeholder research results.
   await field.fill('开场模型失败的测试问题');
   await start.click();
@@ -213,6 +268,8 @@ try {
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   response = await begin('减少动态效果时完整显示校验段落');
+  send(response, { type: 'opening', text: openingText });
+  await page.waitForFunction(text => document.querySelector('[data-testid="opening-text"]')?.textContent === text, openingText);
   blocks.forEach((block, index) => send(response, { type: 'report-block', attempt: 1, index, block }));
   await page.getByText(blocks[2].text, { exact: false }).waitFor();
   assert.equal(await page.locator('.answer-cursor').count(), 0);
@@ -256,7 +313,7 @@ try {
   assert.deepEqual(errors, []);
   assert.equal(imageRequests, 2, 'unconfirmed, failed and cancelled previews cannot trigger images');
   await context.close();
-  console.log(`Streaming UI passed: mock first text ${firstTextMs}ms, paragraph typing in both validation modes, unchecked long text and incomplete layout, delayed source labels, queued confirmation, retry reset, reduced motion, split UTF-8, 390/320px, cancellation, stale events and truncated streams.`);
+  console.log(`Streaming UI passed: mock first text ${firstTextMs}ms, opening and social typing, streamed regeneration and preserved versions, paragraph typing in both validation modes, delayed source labels, queued confirmation, reduced motion, split UTF-8, 390/320px, cancellation, stale events and truncated streams.`);
 } finally {
   await browser.close();
   server.closeAllConnections();

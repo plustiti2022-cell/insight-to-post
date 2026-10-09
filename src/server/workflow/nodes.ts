@@ -205,13 +205,18 @@ export const nodes: Record<NodeId, Node> = {
       throw new AnalysisError("INVALID_REPORT", "核心研究内容在自动重试一次后仍未完整生成，请重新分析。");
     return { draft };
   },
-  async social(state, { signal, observe, socialTargetLength, deps }) {
+  async social(state, { signal, observe, socialTargetLength, deps, onEvent }) {
+    await onEvent?.({ type: "social-start" });
     const social = await deps.generateSocialContent(
       state.draft,
       eligibleForGeneration(state.research),
       signal,
       observe,
       socialTargetLength,
+      onEvent ? { onBlock: async (text, index) => {
+        signal?.throwIfAborted();
+        await onEvent({ type: "social-block", index, text });
+      } } : undefined,
     );
     await observe?.("social", social);
     return {

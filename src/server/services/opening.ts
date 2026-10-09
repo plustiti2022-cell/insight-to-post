@@ -15,7 +15,7 @@ export async function streamOpening(
     let firstTokenMs: number | undefined;
     const response = await callQwen(openingPrompt({ idea }), signal, {
       model: process.env.QWEN_OPENING_MODEL ?? "qwen3.8-flash",
-      maxOutputTokens: 160,
+      maxOutputTokens: 400,
       onDelta: async text => {
         signal?.throwIfAborted();
         if (firstTokenMs === undefined) {

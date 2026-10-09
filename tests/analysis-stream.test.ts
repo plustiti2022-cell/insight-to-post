@@ -30,7 +30,7 @@ test("stream delivers progress before completion, shares JSON capacity and relea
     await emit({ type: "progress", stage: "search" });
     entered.release();
     await pending.promise;
-    return analysis;
+    return { type: "result", analysis };
   });
   const first = await endpoint(request());
   const second = await endpoint(request());
@@ -75,11 +75,11 @@ for (const cancellation of ["request", "reader"] as const) {
     let calls = 0;
     const endpoint = jsonEndpoint(schema, async () => analysis, options, async (_input, signal) => {
       calls++;
-      if (calls > 1) return analysis;
+      if (calls > 1) return { type: "result", analysis };
       entered.release();
       await new Promise<void>(resolve => signal.addEventListener("abort", () => { stopped.release(); resolve(); }, { once: true }));
       signal.throwIfAborted();
-      return analysis;
+      return { type: "result", analysis };
     });
     const controller = new AbortController();
     const response = await endpoint(request(controller.signal));

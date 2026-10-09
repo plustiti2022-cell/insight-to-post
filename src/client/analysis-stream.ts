@@ -1,5 +1,7 @@
 import type { Analysis, AnalysisEvent, AnalysisStage } from "../core/contracts";
 import { displayStatementSchema } from "../core/contracts";
+import { readEventStream } from "./event-stream";
+import { socialPreviewReader } from "./social-stream";
 
 export const analysisProgress: Record<AnalysisStage, string> = {
   search: "正在规划检索、提取正文并评估覆盖",
@@ -17,20 +19,11 @@ export async function readAnalysisStream(
   response: Response,
   onEvent: (event: AnalysisEvent) => void,
 ): Promise<Analysis> {
-  if (!response.body) throw new Error("未收到分析数据，请重试。");
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
   let result: Analysis | undefined;
-  let ended = false;
+  const socialPreview = socialPreviewReader();
   let attempt = 0, blockIndex = 0, confirmed = false;
-  function frame(text: string) {
-    const data = text.split(/\r?\n/).filter(line => line.startsWith("data:"))
-      .map(line => line.slice(5).trimStart()).join("\n");
-    if (!data) return;
-    let event: AnalysisEvent;
-    try { event = JSON.parse(data); }
-    catch { throw new Error("分析数据格式异常，请重试。"); }
+  function frame(raw: unknown) {
+    const event = raw as AnalysisEvent;
     if (!event || typeof event !== "object" || result)
       throw new Error("分析数据格式异常，请重试。");
     if (event.type === "error") throw new Error(event.error?.message || "分析失败，请重试。");
@@ -48,6 +41,9 @@ export async function readAnalysisStream(
       if (!attempt || event.attempt !== attempt || event.index !== blockIndex || !displayStatementSchema.safeParse(event.block).success)
         throw new Error("报告段落格式异常，请重试。");
       blockIndex++;
+    } else if (event.type === "social-start" || event.type === "social-block") {
+      if (!confirmed) throw new Error("文案不能先于报告生成，请重试。");
+      socialPreview(event);
     } else if (event.type === "report" || event.type === "result") {
       if (!event.analysis?.report || !Array.isArray(event.analysis.sources) || !event.analysis.diagnostics)
         throw new Error("分析数据格式异常，请重试。");
@@ -56,21 +52,7 @@ export async function readAnalysisStream(
     } else throw new Error("分析数据格式异常，请重试。");
     onEvent(event);
   }
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      buffer += decoder.decode(value, { stream: !done });
-      let boundary: RegExpExecArray | null;
-      while ((boundary = /\r?\n\r?\n/.exec(buffer))) {
-        frame(buffer.slice(0, boundary.index));
-        buffer = buffer.slice(boundary.index + boundary[0].length);
-      }
-      if (done) { ended = true; break; }
-    }
-    if (buffer.trim() || !result) throw new Error("连接中断，分析未完整完成，请重试。");
-    return result;
-  } finally {
-    if (!ended) await reader.cancel().catch(() => {});
-    reader.releaseLock();
-  }
+  await readEventStream(response, frame);
+  if (!result) throw new Error("连接中断，分析未完整完成，请重试。");
+  return result;
 }

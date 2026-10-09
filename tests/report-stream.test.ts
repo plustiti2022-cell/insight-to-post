@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { reportBlockReader } from "../src/server/report-stream";
+import { modelObjectArrayReader } from "../src/server/model-stream";
 import { generateReport } from "../src/server/services/report";
 import { AnalysisError } from "../src/server/runtime";
 import { analyze, analysisDependencies, runAnalysisGraph, type AnalysisDependencies } from "../src/server/workflow/run";
@@ -56,13 +56,13 @@ function dependencies(): AnalysisDependencies {
 
 test("incremental report parser respects nested JSON, escaped strings, field order and every character boundary", async () => {
   const values: unknown[] = [];
-  const read = reportBlockReader(async (item, index) => { assert.equal(index, values.length); values.push(item); });
+  const read = modelObjectArrayReader("summary", async (item, index) => { assert.equal(index, values.length); values.push(item); });
   const items = [{ text: '引号"、反斜线\\和括号 } ] { ，不会结束段落。', references, presentation: "lead" }, raw.summary[1]];
   const json = JSON.stringify({ cards: [{ summary: ["not the answer"] }], title: "标题", summary: items });
   for (const char of `\n\`\`\`json\n${json}\n\`\`\``) await read(char);
   assert.deepEqual(values, items);
   const unicode: unknown[] = [];
-  const unicodeRead = reportBlockReader(async item => { unicode.push(item); });
+  const unicodeRead = modelObjectArrayReader("summary", async item => { unicode.push(item); });
   for (const char of '{"summary":[{"text":"\\u7814\\u7a76"}]}') await unicodeRead(char);
   assert.deepEqual(unicode, [{ text: "研究" }]);
   await assert.rejects(read('{"summary":[]}'), /重复summary/);

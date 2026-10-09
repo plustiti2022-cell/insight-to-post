@@ -40,6 +40,7 @@ export type AnalysisDependencies = {
     signal?: AbortSignal,
     observe?: Observer,
     length?: number,
+    options?: { onBlock?: (text: string, index: number) => Promise<void> },
   ): Promise<SocialResult>;
   signSocialSnapshot(
     report: Draft,

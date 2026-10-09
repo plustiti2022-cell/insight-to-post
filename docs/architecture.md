@@ -2,7 +2,7 @@
 
 更新：2026-10-09。本文描述当前实现；历史开发计划和演示资料不定义当前行为。
 
-当前 `codex/validated-report-stream-test` 实验默认 `REPORT_CORE_VALIDATION=false`：公开 `analyze` 跳过核心内容校验与重生成。只有显式配置 `true` 才恢复严格模式。规则与图的独立调用仍默认严格，测试可显式传入 `validateCoreContent:false`。
+当前 `codex/social-opening-stream` 从 `main` 创建，延续实验默认 `REPORT_CORE_VALIDATION=false`：公开 `analyze` 跳过核心内容校验与重生成。只有显式配置 `true` 才恢复严格模式。规则与图的独立调用仍默认严格，测试可显式传入 `validateCoreContent:false`。
 
 社交写作始终只调用一次，当前服务不执行文案内容校验或自动纠错；只读取完整简报作为写作素材，后台解析模型段落文字。已删除复制简报作为成功文案的旧兜底。写作失败时报告仍保留、结果状态为 partial，并返回空的 failed 文案及签名重试入口，不触发配图。
 
@@ -96,9 +96,9 @@ flowchart TD
 
 公开的 `analyze(idea, signal, observe, socialTargetLength, onEvent?)` 保留原有调用方式与 JSON 返回字段，新增可选公开事件回调，脚本使用新路径直接导入。复核相关观察事件随节点一起删除。请求体实际超限时统一返回 413；研究和文案 API 分别保留单进程并发上限 2。
 
-`core/contracts.ts` 声明公开 `AnalysisEvent` 与阶段契约。流式入口在创建研究状态前调用独立的 `streamOpening` 服务：短提示词只接收原始问题，独立 flash 模型关闭思考并流式输出接话和两个关注点。每个文字增量通过 `opening` 事件直接展示；完成后丢弃模型返回内容，再创建原状态、执行原节点和边。开场输出不保存在工作流状态、不进入任何后续模型输入或签名快照，无重试或业务兜底，失败直接传播。JSON 调用没有展示开场。服务只在 `run.ts` 组装，供应商在原 `callQwen` 协议适配中支持 Responses SSE，忽略思考和工具事件。
+`core/contracts.ts` 声明公开 `AnalysisEvent` 与阶段契约。流式入口在创建研究状态前调用独立的 `streamOpening` 服务：提示词只接收原始问题，独立 flash 模型关闭思考，使用 400 输出 token 预算，先接话再展开两个到三个具体关注点，通常 120–180 字。文字增量通过 `opening` 事件立即转发，由 `OpeningMessage` 和 `client/use-typewriter.ts` 累计逐字播放；上游完成后丢弃模型返回内容，再创建原状态、执行原节点和边，无需等待动画。开场输出不保存在工作流状态、不进入任何后续模型输入或签名快照，无重试或业务兜底，失败直接传播。JSON 调用没有展示开场。服务只在 `run.ts` 组装，供应商在原 `callQwen` 协议适配中支持 Responses SSE，忽略思考和工具事件。
 
-报告独立使用 `QWEN_REPORT_MODEL`，默认 `qwen3.8-max`，沿用 7000 token 预算；其他模型配置不受此设置影响。报告服务通过可选 `onBlock` 能力回调启用上游流式，JSON 调用仍等待完整报告。`server/report-stream.ts` 根据字符串转义和嵌套边界提取根 `summary` 数组中的完整对象，支持字段顺序变化与任意网络分块；整个输出仍需完整 JSON 解析。默认关闭模式每段只解码展示字段、映射来源，并与正式报告共享纯文字整理规则。严格模式额外检查结构、首答位置与长度、要点标题、引用和数字，通过后才回调；遇到不合格段落停止发布后续段落并由工作流重生成一次，不叠加服务内部重试。
+报告独立使用 `QWEN_REPORT_MODEL`，默认 `qwen3.8-max`，沿用 7000 token 预算；其他模型配置不受此设置影响。报告服务通过可选 `onBlock` 能力回调启用上游流式，JSON 调用仍等待完整报告。原 `server/report-stream.ts` 已迁移到 `server/model-stream.ts`，由报告和文案共用字符串转义及嵌套边界解析；报告提取根 `summary` 数组中的完整对象，文案提取根 `paragraphs` 数组，支持字段顺序变化与任意网络分块；整个输出仍需完整 JSON 解析。默认关闭模式每段只解码展示字段、映射来源，并与正式报告共享纯文字整理规则。严格模式额外检查结构、首答位置与长度、要点标题、引用和数字，通过后才回调；遇到不合格段落停止发布后续段落并由工作流重生成一次，不叠加服务内部重试。
 
 执行器在 `generate` 与 `recoverAnswer` 前分别发送编号 1 / 2 的 `report-start`、公开来源和 `coreValidation` 模式；关闭模式仅有第一轮。节点通过回调发布带轮次、顺序编号的 `report-block`。浏览器独立保存 `ReportPreview`，按顺序播放完整段落，段落播完才出现引用胶囊；减少动态效果时直接显示完整段落。关闭模式提示“正在生成正文”，不宣称校验通过。严格模式重生成清空旧轮次与播放队列，旧轮次的迟到段落被忽略。预览不进入 `analysis`、文案输入或签名快照。整篇失败或确认前取消、断流时清除预览；已确认报告不受后续文案失败影响。`report` 仍是整篇确认事件：若正文、样式和引用与预览相同，播完剩余队列再展示正式报告；如果不同，立即以正式报告为准。
 
@@ -106,7 +106,11 @@ flowchart TD
 
 浏览器单独累计开场文字，切换问题或开始新请求时清除；使用既有请求身份和取消检查拦截旧增量。开场不代替核心观察，也不改变报告和文案状态。`opening.firstToken` 日志记录模型首段文字耗时，目标 2000ms；开场 token 单独记录，后续研究用量口径不变。总耗时包括开场。模拟测试验证即时转发和展示，真实供应商延迟仍需实测。协议依据：[Qwen Responses API](https://docs.qwencloud.com/api-reference/chat/openai-responses)。
 
-`server/http.ts` 按 Accept 协商 JSON / SSE，两种传输共用端点并发额度。SSE 使用 POST fetch、JSON data 帧和 15 秒注释心跳；请求输入校验发生在返回流之前，流开始后的业务错误映射为受控 `error` 事件，完成发送 `result`。取消请求或消费端关闭流会中止执行信号，额度在执行真正结束后释放。`client/analysis-stream.ts` 负责跨块 UTF-8 解码、SSE 分帧、错误与完整结束检测；`use-analysis.ts` 管理增量状态、超时和过期请求，页面先展示观察，再挂载完成的文案组件。
+`server/http.ts` 按 Accept 协商 JSON / SSE，两种传输共用端点并发额度。SSE 使用 POST fetch、JSON data 帧和 15 秒注释心跳；请求输入校验发生在返回流之前，流开始后的业务错误映射为受控 `error` 事件，各路由返回自己的完成事件（分析 `result`、重生成 `social-result`）。取消请求或消费端关闭流会中止执行信号，额度在执行真正结束后释放。`client/event-stream.ts` 共用跨块 UTF-8 解码及 SSE 分帧，`analysis-stream.ts / social-stream.ts` 分别检查业务事件顺序、错误与完整结束；`use-analysis.ts` 管理增量状态、超时和过期请求，页面先展示观察，再展示文案预览及完成内容。
+
+报告确认后的 `social` 节点发送 `social-start`，通过 `state.ts` 中可选 `onBlock` 能力回调发布编号连续的 `social-block`；回调只承载文字，预览不进入工作流状态或签名快照。文案服务只请求一次，闭合的段落使用 `normalizeSocialText` 整理并跳过空段，最终仍完整解码模型 JSON，不新增事实或内容校验。独立重生成路由使用同一服务与原签名提示词，支持相同预览事件及 JSON 调用。
+
+`SocialPreview` 与开场共用 `useTypewriter`，按与报告相同的 20ms 节奏逐字播放，长文本加速，遵循减少动态效果设置。最终内容与预览相同时等排队文字播完，不同时以正式结果为准。首次成功并播完后才开放复制与挂载配图；重生成期间保留已有版本和图片，全文确认且播完后才追加并选中新版本。失败、取消、断流清除未确认文案预览；开场播放在失败或取消时停止，切换问题时卸载。请求身份及取消信号阻止迟到文案恢复。
 
 ## 这轮收敛了什么
 

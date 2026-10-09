@@ -1,7 +1,8 @@
 import { callQwen, outputText } from "../providers/qwen";
 import { AnalysisError, parseModelJson, rethrowCancellation } from "../runtime";
 import { socialContentPrompt } from "../prompts";
-import { emptySocial, readSocialForDisplay, targetLength } from "../../core/social";
+import { emptySocial, normalizeSocialText, readSocialForDisplay, targetLength } from "../../core/social";
+import { modelObjectArrayReader } from "../model-stream";
 import type { Draft, Source } from "../../core/contracts";
 import { createLogger, failureDetails } from "../logger";
 const logger = createLogger("social");
@@ -12,7 +13,7 @@ export async function generateSocialContent(
   signal?: AbortSignal,
   observe?: (stage: string, data: unknown) => Promise<void>,
   selectedLength?: number,
-  options: { originalPrompt?: string } = {},
+  options: { originalPrompt?: string; onBlock?: (text: string, index: number) => Promise<void> } = {},
 ) {
   return logger.run("generate", { sourceCount: sources.length, replay: options.originalPrompt !== undefined }, async () => {
     const start = Date.now();
@@ -27,11 +28,19 @@ export async function generateSocialContent(
     // 独立写作只接收已完成研究简报的全文，不把报告当作文案兜底。
     const coreObservation = report.summary[0]?.text ?? "";
     try {
+      let index = 0;
+      const readBlock = modelObjectArrayReader("paragraphs", async raw => {
+        if (!raw || typeof raw !== "object" || !("text" in raw) || typeof raw.text !== "string")
+          throw new Error("文案段落格式异常");
+        const text = normalizeSocialText(raw.text);
+        signal?.throwIfAborted();
+        if (text) await options.onBlock?.(text, index++);
+      });
       modelCalls++;
       logger.info("model.started", { attempt: 1, maxAttempts: 1, targetLength: limit });
       const response = await callQwen(socialContentPrompt({
         coreObservation, targetLength: limit, originalPrompt: options.originalPrompt,
-      }), signal);
+      }), signal, options.onBlock ? { onDelta: readBlock } : undefined);
       totalTokens += response.usage?.total_tokens ?? 0;
       logger.info("model.completed", { attempt: 1, outputLength: outputText(response).length, totalTokens });
       await observe?.("social-draft-0", { text: outputText(response) });

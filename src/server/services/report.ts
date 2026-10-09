@@ -11,7 +11,7 @@ import { AnalysisError, parseModelJson, rethrowCancellation } from "../runtime";
 import { reportPrompt } from "../prompts";
 import { evidenceRegistry, hydrateReferences, validAnswerEvidence } from "../../core/evidence";
 import { answerStructureIssues, hasOpeningSummary, presentAnswerBlock, readAnswerForDisplay, readReportForDisplay } from "../../core/report";
-import { reportBlockReader } from "../report-stream";
+import { modelObjectArrayReader } from "../model-stream";
 import { createLogger, failureDetails } from "../logger";
 const logger = createLogger("report");
 
@@ -37,7 +37,7 @@ export async function generateReport(
     const attempts = !validateCoreContent || options.answerOnly || options.singleAttempt || options.onBlock ? 1 : 2;
     for (let attempt = 0; attempt < attempts; attempt++) {
       let streamIssue = "";
-      const readBlock = reportBlockReader(async (raw, index) => {
+      const readBlock = modelObjectArrayReader("summary", async (raw, index) => {
         if (!validateCoreContent) {
           signal?.throwIfAborted();
           await options.onBlock?.(readAnswerForDisplay(raw, records, index), index);

@@ -15,6 +15,6 @@ export const POST = jsonEndpoint(
     tooLargeMessage: "请求内容过长。",
     failureMessage: "分析遇到异常，请稍后重试。",
   },
-  (input, signal, emit) =>
-    analyze(input.idea, signal, undefined, input.socialTargetLength, emit),
+  async (input, signal, emit) =>
+    ({ type: "result", analysis: await analyze(input.idea, signal, undefined, input.socialTargetLength, emit) }),
 );

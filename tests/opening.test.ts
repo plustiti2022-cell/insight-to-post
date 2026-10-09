@@ -35,11 +35,11 @@ test("opening delivers the first split UTF-8 delta before completion using a sho
     assert.equal(body.stream, true);
     assert.equal(body.model, "qwen3.8-flash");
     assert.deepEqual(body.reasoning, { effort: "none" });
-    assert.equal(body.max_output_tokens, 160);
+    assert.equal(body.max_output_tokens, 400);
     assert.equal(body.store, false);
     assert.equal(body.tools, undefined);
     assert.equal(body.previous_response_id, undefined);
-    assert.ok(body.input.length < 100);
+    assert.ok(body.input.length < 180);
     return new Response(new ReadableStream({ start(controller) { output = controller; } }));
   };
   try {

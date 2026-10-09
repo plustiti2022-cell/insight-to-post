@@ -12,6 +12,7 @@ export function useAnalysis() {
   const [elapsed, setElapsed] = useState(0);
   const [progress, setProgress] = useState("");
   const [opening, setOpening] = useState("");
+  const [socialPreview, setSocialPreview] = useState<string | null>(null);
   const [reportPreview, setReportPreview] = useState<ReportPreview | null>(null);
   const controller = useRef<AbortController | null>(null);
   useEffect(
@@ -42,6 +43,7 @@ export function useAnalysis() {
     setReportPreview(null);
     setIsDemo(false);
     setOpening("");
+    setSocialPreview(null);
     setProgress("正在理解问题");
     try {
       const response = await fetch("/api/analyze", {
@@ -64,15 +66,19 @@ export function useAnalysis() {
               value?.attempt === event.attempt && value.blocks.length === event.index
                 ? { ...value, blocks: [...value.blocks, event.block] } : value);
             if (event.type === "report") setAnalysis(event.analysis);
+            if (event.type === "social-start") setSocialPreview("");
+            if (event.type === "social-block") setSocialPreview(value => value ? `${value}\n\n${event.text}` : event.text);
           })
         : await response.json();
       if (controller.current === active && !active.signal.aborted) {
+        if (data.socialContent?.status !== "ready") setSocialPreview(null);
         setAnalysis(data);
         setIsDemo(false);
       }
     } catch (err) {
       if (controller.current !== active) return;
       setReportPreview(null);
+      setSocialPreview(null);
       setError(
         active.signal.aborted
           ? "分析已取消。问题已保留，可以再次开始。"
@@ -95,6 +101,7 @@ export function useAnalysis() {
     setAnalysis(null);
     setReportPreview(null);
     setOpening("");
+    setSocialPreview(null);
     setError("");
   }
   function showDemo(value: Analysis) {
@@ -111,6 +118,7 @@ export function useAnalysis() {
     progress,
     opening,
     reportPreview,
+    socialPreview,
     finishReportPreview: () => setReportPreview(null),
     start,
     clear,

@@ -51,9 +51,9 @@ test('production model calls use centralized builders and prompts have no runtim
 test('opening prompt is short and contains only the original question', () => {
   const idea = '问题包含"引号"\n第二行';
   const prompt = openingPrompt({ idea });
-  assert.ok(prompt.length - JSON.stringify(idea).length < 60);
+  assert.ok(prompt.length - JSON.stringify(idea).length < 160);
   assert.equal(JSON.parse(prompt.split('问题：')[1]), idea);
-  assert.match(prompt, /2个关注点.*60字内.*不下结论/);
+  assert.match(prompt, /2到3个具体关注点.*120到180字.*不下结论/);
 });
 
 test('report input preserves quoted text and line breaks inside JSON data', () => {

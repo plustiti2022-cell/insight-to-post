@@ -150,8 +150,21 @@ export type Analysis = {
 export type AnalysisStage =
   | "search" | "supplement" | "prepareEvidence" | "generate"
   | "validate" | "recoverAnswer" | "completeReport" | "social";
+export type SocialGenerationResult = {
+  socialContent: SocialContent;
+  modelCalls: number;
+  totalTokens: number;
+  durationMs: number;
+};
+export type SocialPreviewEvent =
+  | { type: "social-start" }
+  | { type: "social-block"; index: number; text: string };
+export type SocialStreamEvent = SocialPreviewEvent
+  | { type: "social-result"; result: SocialGenerationResult }
+  | { type: "error"; error: { code: string; message: string } };
 // 段落完整后可预览；coreValidation 标明是否执行内容校验，report 确认生成结束。
 export type AnalysisEvent =
+  | SocialPreviewEvent
   | { type: "opening"; text: string }
   | { type: "progress"; stage: AnalysisStage }
   | { type: "report-start"; attempt: 1 | 2; sources: PublicSource[]; coreValidation?: boolean }

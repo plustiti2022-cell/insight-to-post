@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { Analysis, AnalysisEvent } from "../core/contracts";
+import type { AnalysisEvent, SocialStreamEvent } from "../core/contracts";
 import { AnalysisError } from "./runtime";
 
 type EndpointOptions = {
@@ -19,8 +19,8 @@ export function jsonEndpoint<T>(
   streamExecute?: (
     input: T,
     signal: AbortSignal,
-    emit: (event: AnalysisEvent) => Promise<void>,
-  ) => Promise<Analysis>,
+    emit: (event: AnalysisEvent | SocialStreamEvent) => Promise<void>,
+  ) => Promise<Extract<AnalysisEvent | SocialStreamEvent, { type: "result" | "social-result" }>>,
 ) {
   let active = 0;
   return async (request: Request): Promise<Response> => {
@@ -66,7 +66,7 @@ export function jsonEndpoint<T>(
             };
             const abort = () => { controller.abort(); closeStream(); };
             request.signal.addEventListener("abort", abort, { once: true });
-            const emit = async (event: AnalysisEvent) => {
+            const emit = async (event: AnalysisEvent | SocialStreamEvent) => {
               signal.throwIfAborted();
               if (closed) throw new AnalysisError("CANCELLED", "分析已取消。", 499);
               output.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
@@ -78,8 +78,7 @@ export function jsonEndpoint<T>(
             // 响应头已返回后，错误通过事件发送；并发额度直到任务结束才释放。
             void Promise.resolve().then(async () => {
               signal.throwIfAborted();
-              const result = await streamExecute(input.data, signal, emit);
-              await emit({ type: "result", analysis: result });
+              await emit(await streamExecute(input.data, signal, emit));
             }).catch(async (error: unknown) => {
               if (!closed && !signal.aborted) {
                 const known = endpointError(error, signal, options);

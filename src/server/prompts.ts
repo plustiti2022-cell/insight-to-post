@@ -2,7 +2,7 @@
 // 仅依赖数据类型；不调用模型、不读取环境配置、不清洗或校验业务数据。
 export type OpeningPromptInput = { idea: string };
 export function openingPrompt({ idea }: OpeningPromptInput) {
-  return `用中文先说一句接话，再把问题拆成2个关注点。共60字内，不下结论。问题：${JSON.stringify(idea)}`;
+  return `用中文先自然接话，再把问题拆成2到3个具体关注点，分别说明要查什么、为什么值得看，最后简短说明会结合资料回答。共120到180字，用3到5句连贯短句，不下结论，不编造事实或数据，不输出标题或JSON。问题：${JSON.stringify(idea)}`;
 }
 export type SocialImagePromptInput = { text: string };
 export function socialImagePrompt({ text }: SocialImagePromptInput) {
