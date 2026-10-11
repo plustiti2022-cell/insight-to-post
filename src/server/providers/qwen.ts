@@ -9,7 +9,7 @@ export type QwenResponse = {
 export async function callQwen(
   input: string,
   signal?: AbortSignal,
-  options?: { model?: string; maxOutputTokens?: number; onDelta?: (text: string) => Promise<void> },
+  options?: { model?: string; maxOutputTokens?: number; instructions?: string; onDelta?: (text: string) => Promise<void> },
 ): Promise<QwenResponse> {
   const key = process.env.QWEN_API_KEY;
   if (!key)
@@ -39,6 +39,7 @@ export async function callQwen(
           reasoning: { effort: "none" },
           store: false,
           max_output_tokens: options?.maxOutputTokens ?? 7000,
+          ...(options?.instructions ? { instructions: options.instructions } : {}),
           ...(options?.onDelta ? { stream: true } : {}),
         }),
         signal: signal ? AbortSignal.any([timeout, signal]) : timeout,

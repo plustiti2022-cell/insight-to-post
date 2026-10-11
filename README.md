@@ -85,6 +85,8 @@ POST /api/social-image 接收 `{ "text": "当前社交文案" }`，返回 `image
 
 文案区的“模板二”和“模板三”按钮点击后基于同一份研究简报生成新版本：两者使用用户指定的简短写作要求及带 `claimIds` 的 JSON 输出格式，模板二包含阿里 RSI 的参考文案，模板三不含参考文案。后台继续展示段落文字并沿用研究简报依据。首次生成与“重新生成文案”仍使用原模板；新模板各调用一次，无自动重试或兜底。`POST /api/social-content` 可选传入 `template: 2 / 3`，不传则重放原提示词。
 
+三套文案模板均通过 Responses API 的 `instructions` 单独声明 JSON 输出协议，区分 `text` 字段中的纯文字与外层 JSON 包装；模板正文及重放提示词保持原文。文案失败日志记录请求、JSON 或段落解析阶段；无效 JSON 和无效段落分别提示原因，不自动修复或把纯文字当作成功 JSON。
+
 ## 大模型调用与 prompt 管理
 
 所有模型指令、JSON 输入序列化和重试提示统一维护在 [src/server/prompts.ts](./src/server/prompts.ts)。当前实际调用点如下：

@@ -137,6 +137,7 @@ test("template regeneration uses the signed brief in JSON and SSE with one model
       globalThis.fetch = async (_url, init) => {
         calls++;
         const body = JSON.parse(String(init?.body));
+        assert.match(body.instructions, /只返回一个合法 JSON 对象/);
         assert.equal(body.input, socialContentPrompt({ coreObservation: report.summary[0].text, targetLength: 2000, template }));
         return body.stream ? upstream(JSON.stringify({ paragraphs: templateParagraphs })) : Response.json({ output_text: JSON.stringify({ paragraphs: templateParagraphs }) });
       };

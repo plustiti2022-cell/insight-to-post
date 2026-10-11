@@ -25,3 +25,20 @@ test("timeout produces retryable error",async()=>{
 test('empty convenience output cannot mask a completed message body',()=>{
   assert.equal(outputText({output_text:'',output:[{type:'message',content:[{type:'output_text',text:'{"title":"test","summary":[],"cards":[]}'}]}]}),'{"title":"test","summary":[],"cards":[]}');
 });
+
+test('response instructions are sent separately from the unchanged prompt only when provided', async () => {
+  const priorFetch = globalThis.fetch, priorKey = process.env.QWEN_API_KEY;
+  process.env.QWEN_API_KEY = 'test-only';
+  const requests: Record<string, unknown>[] = [];
+  globalThis.fetch = async (_url, init) => { requests.push(JSON.parse(String(init?.body))); return Response.json({ status: 'completed', output_text: '{}' }); };
+  try {
+    await callQwen('原提示词', undefined, { instructions: '仅返回 JSON' });
+    await callQwen('原提示词');
+    assert.equal(requests[0].input, '原提示词');
+    assert.equal(requests[0].instructions, '仅返回 JSON');
+    assert.equal('instructions' in requests[1], false);
+  } finally {
+    globalThis.fetch = priorFetch;
+    if (priorKey === undefined) delete process.env.QWEN_API_KEY; else process.env.QWEN_API_KEY = priorKey;
+  }
+});

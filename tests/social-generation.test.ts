@@ -34,7 +34,10 @@ test("social writer receives the full completed brief and publishes only its own
   let calls = 0;
   globalThis.fetch = async (_url, init) => {
     calls++;
-    const prompt = JSON.parse(String(init?.body)).input;
+    const body = JSON.parse(String(init?.body));
+    const prompt = body.input;
+    assert.match(body.instructions, /只返回一个合法 JSON 对象/);
+    assert.match(body.instructions, /只约束 text 字段的内容/);
     assert.equal(JSON.parse(prompt.split("\n核心观察：")[1]), report.summary[0].text);
     assert.match(prompt, /完整展开内容/);
     assert.match(prompt, /不要逐段照搬简报/);
@@ -71,6 +74,7 @@ test("broken, empty and unreadable model output cannot be replaced by the resear
     assert.equal(result.socialContent.status, "failed");
     assert.equal(result.socialContent.text, "");
     assert.equal(result.totalTokens, 12);
+    assert.match(result.socialContent.warnings[0], raw === "invalid JSON" ? /不是有效 JSON/ : /段落结构无效或内容为空/);
   }
 }));
 
