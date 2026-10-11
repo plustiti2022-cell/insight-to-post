@@ -39,6 +39,7 @@ try {
   const versionGate=new Promise(resolve=>{releaseVersion=resolve;});
   const versionRequest=new Promise(resolve=>{observedVersion=resolve;});
   await page.route('**/api/social-content',async route=>{
+    assert.deepEqual(route.request().postDataJSON(),{token:fixture.socialRetryToken},'default regeneration keeps its original request');
     retries++;observedVersion();await versionGate;
     return route.fulfill({json:{socialContent:{...fixture.socialContent,text:secondText,characterCount:secondText.length,weightedLength:42,warnings:['第二版长度提示。']}}});
   });
@@ -106,6 +107,26 @@ try {
   await page.getByRole('heading',{name:fixture.report.title}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await page.setViewportSize({width:320,height:740});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.unroute('**/api/social-content');
+  const templateRequests=[];
+  await page.route('**/api/social-content',route=>{
+    const input=route.request().postDataJSON();templateRequests.push(input);
+    const socialContent={...fixture.socialContent,text:`模板${input.template}生成的文案。`};
+    const events=[{type:'social-start'},{type:'social-block',index:0,text:socialContent.text},{type:'social-result',result:{socialContent}}];
+    return route.fulfill({contentType:'text/event-stream',body:events.map(event=>`data: ${JSON.stringify(event)}\n\n`).join('')});
+  });
+  assert.equal(templateRequests.length,0,'templates generate only after clicking');
+  for(const [template,label] of [[2,'模板二'],[3,'模板三']]){
+    await page.getByRole('button',{name:label,exact:true}).click();
+    await page.getByTestId('social-text').filter({hasText:`模板${template}生成的文案。`}).waitFor();
+    assert.equal(await versions.getByRole('status').innerText(),`文案 ${template+2} / ${template+2}`);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  }
+  assert.deepEqual(templateRequests,[{token:fixture.socialRetryToken,template:2},{token:fixture.socialRetryToken,template:3}]);
+  assert.equal((await page.locator('.summary-box').innerText()).trim(),answer,'templates reuse the same research');
+  await versions.getByRole('button',{name:'上一个文案'}).click();
+  assert.equal(await page.getByTestId('social-text').innerText(),'模板2生成的文案。');
+  await page.locator('.social-panel').screenshot({path:'.local/social-templates-mobile.png'});
   await page.getByRole('textbox',{name:'研究问题'}).fill('一个完全不同的新研究问题');assert.equal(await page.getByRole('heading',{name:'社交媒体文案',exact:true}).count(),0,'old content must disappear on new input');
   // A response arriving after cancelling or changing the question must not restore old content.
   await page.getByRole('button',{name:'开始分析'}).click();await page.getByTestId('social-text').waitFor();

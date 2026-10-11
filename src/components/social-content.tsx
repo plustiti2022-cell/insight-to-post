@@ -55,11 +55,11 @@ export function SocialContent({ analysis, isDemo, onSource, initialPreview = nul
       if (version === copyVersion.current) { setCopyStatus('浏览器未允许自动复制，请全选下方文字后手动复制。'); setManual(true); requestAnimationFrame(() => { field.current?.focus(); field.current?.select(); }); }
     }
   }
-  async function retry() {
+  async function retry(template?: 2 | 3) {
     if (!analysis.socialRetryToken || loading || isDemo) return;
     const active = new AbortController(); controller.current = active; setLoading(true); setRetryPreview(null); setRetryConfirmed(undefined); setRetryError(''); setCopyStatus(''); setManual(false); copyVersion.current++;
     try {
-      const response = await fetch('/api/social-content', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify({ token: analysis.socialRetryToken }), signal: AbortSignal.any([active.signal, AbortSignal.timeout(600000)]) });
+      const response = await fetch('/api/social-content', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify({ token: analysis.socialRetryToken, template }), signal: AbortSignal.any([active.signal, AbortSignal.timeout(600000)]) });
       if (!response.ok) { const data = await response.json(); throw new Error(data.error?.message || '文案重试失败。'); }
       let previewReceived = false;
       const data = response.headers.get('content-type')?.includes('text/event-stream')
@@ -93,7 +93,7 @@ export function SocialContent({ analysis, isDemo, onSource, initialPreview = nul
     </> : <div className="social-state">{isDemo ? '界面示例为虚构数据，不生成待发布文案。' : pending ? '核心观察已生成，正在生成社交文案…' : firstTyping ? '正在展示社交文案…' : (content?.warnings ?? ['本次未生成可用文案。']).join(' ')}</div>}
     </VersionCarousel>
     {retryError && <p className="social-feedback" role="alert">{retryError}</p>}
-    <div className="social-actions"><button className="submit-button" disabled={!ready || loading || typing} onClick={copy}>{copyStatus === '已复制' ? <Check size={16}/> : <Copy size={16}/>} {copyStatus === '已复制' ? '已复制' : '一键复制'}</button>{analysis.socialRetryToken && !isDemo && <button className="social-retry" disabled={loading || typing} onClick={retry}><RefreshCw size={15}/> 重新生成文案</button>}</div>
+    <div className="social-actions"><button className="submit-button" disabled={!ready || loading || typing} onClick={copy}>{copyStatus === '已复制' ? <Check size={16}/> : <Copy size={16}/>} {copyStatus === '已复制' ? '已复制' : '一键复制'}</button>{analysis.socialRetryToken && !isDemo && <><button className="social-retry" disabled={loading || typing} onClick={() => retry()}><RefreshCw size={15}/> 重新生成文案</button><button className="social-retry" disabled={loading || typing || pending} onClick={() => retry(2)}>模板二</button><button className="social-retry" disabled={loading || typing || pending} onClick={() => retry(3)}>模板三</button></>}</div>
     {imageStarted && content && !firstTyping && <SocialImage text={content.text} disabled={!ready || loading || typing}/>}
     {copyStatus && <p className="social-feedback" role="status" aria-live="polite">{copyStatus}</p>}
     {manual && ready && content && <div className="manual-copy"><label htmlFor="manual-copy">手动复制文字</label><textarea id="manual-copy" ref={field} readOnly value={content.text}/><button className="social-retry" onClick={() => {field.current?.focus();field.current?.select();}}>全选文字</button></div>}

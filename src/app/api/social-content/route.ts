@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 export const maxDuration = 600;
 const inputSchema = z.object({
   token: z.string({ error: "请从当前报告重试文案。" }),
+  template: z.union([z.literal(2), z.literal(3)]).optional(),
 });
 export const POST = jsonEndpoint(
   inputSchema,
@@ -18,7 +19,7 @@ export const POST = jsonEndpoint(
       signal,
       undefined,
       snapshot.targetLength,
-      { originalPrompt: snapshot.prompt },
+      { originalPrompt: input.template === undefined ? snapshot.prompt : undefined, template: input.template },
     );
   },
   {
@@ -32,7 +33,7 @@ export const POST = jsonEndpoint(
     const snapshot = readSocialSnapshot(input.token);
     await emit({ type: "social-start" });
     const result = await generateSocialContent(snapshot.report, snapshot.sources, signal, undefined,
-      snapshot.targetLength, { originalPrompt: snapshot.prompt, onBlock: async (text, index) => {
+      snapshot.targetLength, { originalPrompt: input.template === undefined ? snapshot.prompt : undefined, template: input.template, onBlock: async (text, index) => {
         signal.throwIfAborted();
         await emit({ type: "social-block", text, index });
       } });

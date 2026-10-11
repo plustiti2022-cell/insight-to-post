@@ -7,6 +7,7 @@ import { readAnalysisStream } from "../src/client/analysis-stream";
 import { analysisDependencies, runAnalysisGraph } from "../src/server/workflow/run";
 import { signSocialSnapshot, readSocialSnapshot } from "../src/server/services/snapshot";
 import { POST } from "../src/app/api/social-content/route";
+import { socialContentPrompt } from "../src/server/prompts";
 
 const sources: Source[] = [{ id: "S1", url: "https://example.org/article", title: "原文", sourceType: "研究论文",
   publishedAt: null, extractedContent: "Research findings depend on task scope.", extractionStatus: "available", extractionReason: "test" }];
@@ -125,6 +126,28 @@ test("signed regeneration endpoint streams the unchanged prompt, keeps JSON fall
   assert.equal((await (await POST(request(false))).json()).socialContent.text, expected);
   await assert.rejects(readSocialStream(await POST(request(true, "invalid-token")), () => {}));
   assert.equal(calls, 2);
+}));
+
+test("template regeneration uses the signed brief in JSON and SSE with one model call", () => mocked(async () => {
+  const token = signSocialSnapshot(report, sources, 2000);
+  let calls = 0;
+  for (const template of [2, 3] as const) {
+    for (const stream of [false, true]) {
+      globalThis.fetch = async (_url, init) => {
+        calls++;
+        const body = JSON.parse(String(init?.body));
+        assert.equal(body.input, socialContentPrompt({ coreObservation: report.summary[0].text, targetLength: 2000, template }));
+        return body.stream ? upstream(JSON.stringify({ paragraphs })) : Response.json({ output_text: JSON.stringify({ paragraphs }) });
+      };
+      const response = await POST(new Request("https://local.test/api/social-content", {
+        method: "POST", headers: { Accept: stream ? "text/event-stream" : "application/json" }, body: JSON.stringify({ token, template }),
+      }));
+      const result = stream ? await readSocialStream(response, () => {}) : await response.json();
+      assert.equal(result.socialContent.text, expected);
+      assert.equal(result.socialContent.targetLength, 2000);
+    }
+  }
+  assert.equal(calls, 4);
 }));
 
 test("social client handles byte-split UTF-8 and rejects truncation, malformed order and errors", () => mocked(async () => {

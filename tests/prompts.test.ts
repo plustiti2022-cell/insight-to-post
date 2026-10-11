@@ -102,6 +102,23 @@ test('social prompt takes only core observation text even when callers attach ot
   }
 });
 
+test('social templates change only the reference example and template three removes it', () => {
+  const input = { coreObservation: '同一份研究正文。', targetLength: 2000 };
+  const first = socialContentPrompt(input);
+  const second = socialContentPrompt({ ...input, template: 2 });
+  const third = socialContentPrompt({ ...input, template: 3 });
+  const reference = /\n参考文案（参考其风格，重点应用开头结尾）：\n[\s\S]*?\n(?=\n格式要求：)/;
+  assert.match(first, /天啊，AI居然已经开始参与下一代AI研发了/);
+  assert.match(second, /AI开始自我进化？阿里这次真玩到前沿了/);
+  assert.match(second, /33轮有效迭代/);
+  assert.match(second, /96%吞吐提升、42%面积优化/);
+  assert.match(second, /大模型的考场，正在从Benchmark往实验室里搬。/);
+  assert.doesNotMatch(second, /NaiveAI/);
+  assert.equal(second.replace(reference, ''), first.replace(reference, ''));
+  assert.doesNotMatch(third, /参考文案|NaiveAI|阿里|Qwen3.8-Max/);
+  assert.equal(third, first.replace(reference, '').replace('参考文案只提供语气和节奏，不使用其中的专名、事实或数字。', ''));
+});
+
 test('report prompt sends only the question, body passages and reference IDs even with extra source metadata', () => {
   const sources = [{
     id: 'S1', title: 'PRIVATE_TITLE', author: 'PRIVATE_AUTHOR', url: 'https://private-source.example', sourceType: 'PRIVATE_TYPE',

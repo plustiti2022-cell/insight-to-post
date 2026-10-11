@@ -13,7 +13,7 @@ export async function generateSocialContent(
   signal?: AbortSignal,
   observe?: (stage: string, data: unknown) => Promise<void>,
   selectedLength?: number,
-  options: { originalPrompt?: string; onBlock?: (text: string, index: number) => Promise<void> } = {},
+  options: { originalPrompt?: string; template?: 2 | 3; onBlock?: (text: string, index: number) => Promise<void> } = {},
 ) {
   return logger.run("generate", { sourceCount: sources.length, replay: options.originalPrompt !== undefined }, async () => {
     const start = Date.now();
@@ -39,7 +39,7 @@ export async function generateSocialContent(
       modelCalls++;
       logger.info("model.started", { attempt: 1, maxAttempts: 1, targetLength: limit });
       const response = await callQwen(socialContentPrompt({
-        coreObservation, targetLength: limit, originalPrompt: options.originalPrompt,
+        coreObservation, targetLength: limit, originalPrompt: options.originalPrompt, template: options.template,
       }), signal, options.onBlock ? { onDelta: readBlock } : undefined);
       totalTokens += response.usage?.total_tokens ?? 0;
       logger.info("model.completed", { attempt: 1, outputLength: outputText(response).length, totalTokens });
