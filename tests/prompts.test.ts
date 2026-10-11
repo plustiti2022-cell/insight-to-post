@@ -102,7 +102,7 @@ test('social prompt takes only core observation text even when callers attach ot
   }
 });
 
-test('social templates change only the reference example and template three removes it', () => {
+test('social templates two and three use the requested instructions and claimIds format', () => {
   const input = { coreObservation: '同一份研究正文。', targetLength: 2000 };
   const first = socialContentPrompt(input);
   const second = socialContentPrompt({ ...input, template: 2 });
@@ -114,9 +114,27 @@ test('social templates change only the reference example and template three remo
   assert.match(second, /96%吞吐提升、42%面积优化/);
   assert.match(second, /大模型的考场，正在从Benchmark往实验室里搬。/);
   assert.doesNotMatch(second, /NaiveAI/);
-  assert.equal(second.replace(reference, ''), first.replace(reference, ''));
+  assert.doesNotMatch(second, /核心观察是已完成的研究简报|不要逐段照搬|参考文案只提供语气和节奏/);
   assert.doesNotMatch(third, /参考文案|NaiveAI|阿里|Qwen3.8-Max/);
-  assert.equal(third, first.replace(reference, '').replace('参考文案只提供语气和节奏，不使用其中的专名、事实或数字。', ''));
+  assert.equal(second.replace(reference, ''), third);
+  for (const targetLength of [280, 2000]) {
+    const expected = `你是中文社交媒体作者。表达自然、有观点，将下面的核心观察改写成一篇可以直接复制到 X 的文案。
+
+开头简短，一句话，语气夸张吸引兴趣。
+中间用短段落讲清楚为什么。
+结尾一句话，点出一个可以被讨论的话题，引起共鸣。
+
+格式要求：
+纯文字，段间空行，无Markdown。目标X加权长度不超过 ${targetLength}，${targetLength > 280 ? '通常300到650个汉字，保持自然叙述。' : '精炼表达，保留核心判断。'}不新增具体事实和数字。
+输出JSON：{"paragraphs":[{"text":"自然段","claimIds":["summary-1"]}]}。引用核心观察的段落使用claimIds=["summary-1"]，无事实性主张的引子或结尾可使用claimIds=[]；编号供后台保留引用，不写入正文。
+核心观察：${JSON.stringify(input.coreObservation)}`;
+    assert.equal(socialContentPrompt({ ...input, targetLength, template: 3 }), expected);
+  }
+  for (const template of [2, 3] as const) {
+    const prompt = socialContentPrompt({ ...input, template });
+    assert.equal(socialContentPrompt({ ...input, template, correction: '测试反馈' }), `${prompt}\n上次问题：测试反馈。重新输出完整文案。`);
+    assert.equal(socialContentPrompt({ ...input, template, originalPrompt: '原封不动的提示词' }), '原封不动的提示词');
+  }
 });
 
 test('report prompt sends only the question, body passages and reference IDs even with extra source metadata', () => {

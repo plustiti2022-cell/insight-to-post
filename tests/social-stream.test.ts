@@ -130,6 +130,7 @@ test("signed regeneration endpoint streams the unchanged prompt, keeps JSON fall
 
 test("template regeneration uses the signed brief in JSON and SSE with one model call", () => mocked(async () => {
   const token = signSocialSnapshot(report, sources, 2000);
+  const templateParagraphs = paragraphs.map(item => ({ ...item, claimIds: item.text.trim() ? ["summary-1"] : [] }));
   let calls = 0;
   for (const template of [2, 3] as const) {
     for (const stream of [false, true]) {
@@ -137,7 +138,7 @@ test("template regeneration uses the signed brief in JSON and SSE with one model
         calls++;
         const body = JSON.parse(String(init?.body));
         assert.equal(body.input, socialContentPrompt({ coreObservation: report.summary[0].text, targetLength: 2000, template }));
-        return body.stream ? upstream(JSON.stringify({ paragraphs })) : Response.json({ output_text: JSON.stringify({ paragraphs }) });
+        return body.stream ? upstream(JSON.stringify({ paragraphs: templateParagraphs })) : Response.json({ output_text: JSON.stringify({ paragraphs: templateParagraphs }) });
       };
       const response = await POST(new Request("https://local.test/api/social-content", {
         method: "POST", headers: { Accept: stream ? "text/event-stream" : "application/json" }, body: JSON.stringify({ token, template }),
